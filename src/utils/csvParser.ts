@@ -46,7 +46,7 @@ export function parseCSV(file: File): Promise<Transaction[]> {
           if (isNaN(amount)) continue
 
           let dateStr = rawDate
-          if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(dateStr)) {
+          if (/^\d{4}[/-]\d{1,2}[/-]\d{1,2}/.test(dateStr)) {
             dateStr = dateStr.replace(/\//g, '-')
           }
           const match = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)

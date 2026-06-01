@@ -1,7 +1,6 @@
 import { Wallet, TrendingUp, ArrowUpRight, CalendarDays } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
-import type { Transaction } from '@/types'
 
 function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string; accent: string }) {
   return (

@@ -13,6 +13,7 @@ import CategoryPie from '@/components/CategoryPie'
 import HeatmapCalendar from '@/components/HeatmapCalendar'
 import TransactionTable from '@/components/TransactionTable'
 import MerchantRanking from '@/components/MerchantRanking'
+import AnnualSummary from '@/components/AnnualSummary'
 import FilterBar from '@/components/FilterBar'
 
 export default function Home() {
@@ -124,6 +125,7 @@ export default function Home() {
           <div className="flex flex-col gap-6">
             <FilterBar />
             <StatsCards />
+            <AnnualSummary />
             <div className="grid grid-cols-5 gap-6">
               <div className="col-span-3">
                 <TrendChart />

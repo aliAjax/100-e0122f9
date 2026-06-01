@@ -1,13 +1,16 @@
 import { useCallback, useState } from 'react'
-import { Upload, FileText, AlertCircle } from 'lucide-react'
+import { Upload, FileText, AlertCircle, Sparkles } from 'lucide-react'
 import { previewCSV } from '@/utils/csvParser'
+import { generateSampleData } from '@/utils/sampleDataGenerator'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function CSVUploader() {
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
+  const setTransactions = useDashboardStore((s) => s.setTransactions)
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleFile = useCallback(
@@ -60,6 +63,20 @@ export default function CSVUploader() {
     [handleFile],
   )
 
+  const handleUseSampleData = useCallback(async () => {
+    setGenerating(true)
+    setError(null)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      const sampleData = generateSampleData()
+      setTransactions(sampleData)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setGenerating(false)
+    }
+  }, [setTransactions])
+
   return (
     <div
       onDrop={onDrop}
@@ -70,7 +87,7 @@ export default function CSVUploader() {
         dragging
           ? 'border-emerald-400 bg-emerald-400/10 shadow-[0_0_30px_rgba(16,185,129,0.15)]'
           : 'border-slate-600 bg-slate-800/50 hover:border-slate-500 hover:bg-slate-800/80',
-        loading && 'pointer-events-none opacity-60',
+        (loading || generating) && 'pointer-events-none opacity-60',
       )}
     >
       {loading ? (
@@ -87,10 +104,35 @@ export default function CSVUploader() {
             <p className="text-base font-medium text-slate-200">拖拽 CSV 文件到此处</p>
             <p className="mt-1 text-sm text-slate-500">或点击下方按钮选择文件</p>
           </div>
-          <label className="cursor-pointer rounded-xl bg-emerald-500/20 px-6 py-2.5 text-sm font-medium text-emerald-400 transition-all hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-            选择文件
-            <input type="file" accept=".csv" className="hidden" onChange={onFileInput} />
-          </label>
+          <div className="flex flex-col items-center gap-3">
+            <label className="cursor-pointer rounded-xl bg-emerald-500/20 px-6 py-2.5 text-sm font-medium text-emerald-400 transition-all hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+              选择文件
+              <input type="file" accept=".csv" className="hidden" onChange={onFileInput} />
+            </label>
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex-1 h-px bg-slate-700/50" />
+              <span className="text-[11px] text-slate-600">或</span>
+              <div className="flex-1 h-px bg-slate-700/50" />
+            </div>
+            <button
+              type="button"
+              onClick={handleUseSampleData}
+              disabled={generating}
+              className="flex items-center gap-2 rounded-xl bg-violet-500/15 px-6 py-2.5 text-sm font-medium text-violet-400 transition-all hover:bg-violet-500/25 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)] disabled:opacity-50"
+            >
+              {generating ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  使用示例数据
+                </>
+              )}
+            </button>
+          </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
             <FileText className="h-3.5 w-3.5" />
             <span>支持列名：日期/分类/商户/金额（自动适配中英文）</span>

@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { BarChart3, Trash2, Upload, AlertCircle } from 'lucide-react'
+import { BarChart3, Trash2, Upload, AlertCircle, Wallet } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
+import { useBudgetStore } from '@/store/useBudgetStore'
 import { previewCSV } from '@/utils/csvParser'
 import CSVUploader from '@/components/CSVUploader'
 import CSVPreviewModal from '@/components/CSVPreviewModal'
+import BudgetSettingsModal from '@/components/BudgetSettingsModal'
+import BudgetProgress from '@/components/BudgetProgress'
 import StatsCards from '@/components/StatsCards'
 import TrendChart from '@/components/TrendChart'
 import CategoryPie from '@/components/CategoryPie'
@@ -17,6 +20,8 @@ export default function Home() {
   const clearData = useDashboardStore((s) => s.clearData)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
   const [reimportError, setReimportError] = useState<string | null>(null)
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+  const hasBudgets = useBudgetStore((s) => Object.keys(s.budgets).length > 0)
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
@@ -57,6 +62,13 @@ export default function Home() {
                     }
                   }} />
                 </label>
+                <button
+                  onClick={() => setBudgetModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasBudgets ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  预算设置
+                </button>
                 <button
                   onClick={clearData}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
@@ -115,8 +127,9 @@ export default function Home() {
               <div className="col-span-3">
                 <TrendChart />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-2 flex flex-col gap-6">
                 <CategoryPie />
+                <BudgetProgress />
               </div>
             </div>
             <HeatmapCalendar />
@@ -126,6 +139,7 @@ export default function Home() {
       </main>
 
       <CSVPreviewModal />
+      <BudgetSettingsModal open={budgetModalOpen} onClose={() => setBudgetModalOpen(false)} />
     </div>
   )
 }

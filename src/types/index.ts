@@ -23,6 +23,13 @@ export interface CategoryData {
   count: number
 }
 
+export interface BudgetItem {
+  category: string
+  amount: number
+}
+
+export type BudgetMap = Record<string, number>
+
 export interface DailyData {
   date: string
   amount: number

@@ -12,6 +12,7 @@ import TrendChart from '@/components/TrendChart'
 import CategoryPie from '@/components/CategoryPie'
 import HeatmapCalendar from '@/components/HeatmapCalendar'
 import TransactionTable from '@/components/TransactionTable'
+import MerchantRanking from '@/components/MerchantRanking'
 import FilterBar from '@/components/FilterBar'
 
 export default function Home() {
@@ -133,6 +134,7 @@ export default function Home() {
               </div>
             </div>
             <HeatmapCalendar />
+            <MerchantRanking />
             <TransactionTable />
           </div>
         )}

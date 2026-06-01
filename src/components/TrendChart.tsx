@@ -14,7 +14,7 @@ export default function TrendChart() {
 
   const allMonthly = useMemo(() => {
     if (!filter.selectedCategory) return monthlyData
-    return aggregateByMonth(applyFilter(transactions, { selectedCategory: null, selectedMonth: null, selectedDate: null }))
+    return aggregateByMonth(applyFilter(transactions, { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null }))
   }, [transactions, filter.selectedCategory, monthlyData])
 
   const option = useMemo(

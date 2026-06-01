@@ -37,13 +37,14 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
     selectedCategory: null,
     selectedMonth: null,
     selectedDate: null,
+    selectedMerchant: null,
   },
   dataLoaded: loadTransactions().length > 0,
   previewResult: null,
 
   setTransactions: (transactions) => {
     saveTransactions(transactions)
-    set({ transactions, dataLoaded: true, filter: { selectedCategory: null, selectedMonth: null, selectedDate: null } })
+    set({ transactions, dataLoaded: true, filter: { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null } })
   },
 
   setFilter: (partial) =>
@@ -52,11 +53,11 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
     })),
 
   clearFilter: () =>
-    set({ filter: { selectedCategory: null, selectedMonth: null, selectedDate: null } }),
+    set({ filter: { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null } }),
 
   clearData: () => {
     localStorage.removeItem(STORAGE_KEY)
-    set({ transactions: [], dataLoaded: false, filter: { selectedCategory: null, selectedMonth: null, selectedDate: null }, previewResult: null })
+    set({ transactions: [], dataLoaded: false, filter: { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null }, previewResult: null })
   },
 
   setPreviewResult: (result) => set({ previewResult: result }),
@@ -71,7 +72,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       return {
         transactions: txs,
         dataLoaded: true,
-        filter: { selectedCategory: null, selectedMonth: null, selectedDate: null },
+        filter: { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null },
         previewResult: null,
       }
     }),

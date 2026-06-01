@@ -10,6 +10,7 @@ export interface FilterState {
   selectedCategory: string | null
   selectedMonth: string | null
   selectedDate: string | null
+  selectedMerchant: string | null
 }
 
 export interface MonthlyData {

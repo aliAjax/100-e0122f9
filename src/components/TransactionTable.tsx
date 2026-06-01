@@ -23,6 +23,11 @@ export default function TransactionTable() {
     setFilter({ selectedCategory: next })
   }
 
+  const handleMerchantClick = (merchant: string) => {
+    const next = filter.selectedMerchant === merchant ? null : merchant
+    setFilter({ selectedMerchant: next })
+  }
+
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-slate-700/50 px-5 py-4">
@@ -53,7 +58,14 @@ export default function TransactionTable() {
                     {t.category}
                   </button>
                 </td>
-                <td className="max-w-[200px] truncate px-5 py-3 text-slate-400">{t.merchant || '-'}</td>
+                <td className="max-w-[200px] px-5 py-3">
+                  <button
+                    onClick={() => handleMerchantClick(t.merchant)}
+                    className={`truncate text-xs transition-colors hover:text-violet-300 ${filter.selectedMerchant === t.merchant ? 'text-violet-400' : 'text-slate-400'}`}
+                  >
+                    {t.merchant || '-'}
+                  </button>
+                </td>
                 <td className="px-5 py-3 text-right font-mono text-slate-200">¥{formatCurrency(t.amount)}</td>
               </tr>
             ))}

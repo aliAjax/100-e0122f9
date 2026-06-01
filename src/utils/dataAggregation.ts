@@ -38,7 +38,7 @@ export function aggregateByDay(transactions: Transaction[]): DailyData[] {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function applyFilter(transactions: Transaction[], filter: { selectedCategory: string | null; selectedMonth: string | null; selectedDate: string | null }): Transaction[] {
+export function applyFilter(transactions: Transaction[], filter: { selectedCategory: string | null; selectedMonth: string | null; selectedDate: string | null; selectedMerchant: string | null }): Transaction[] {
   let result = transactions
   if (filter.selectedCategory) {
     result = result.filter((t) => t.category === filter.selectedCategory)
@@ -48,6 +48,9 @@ export function applyFilter(transactions: Transaction[], filter: { selectedCateg
   }
   if (filter.selectedDate) {
     result = result.filter((t) => t.date === filter.selectedDate)
+  }
+  if (filter.selectedMerchant) {
+    result = result.filter((t) => t.merchant === filter.selectedMerchant)
   }
   return result
 }

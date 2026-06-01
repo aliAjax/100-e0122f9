@@ -7,7 +7,7 @@ export default function FilterBar() {
   const setFilter = useDashboardStore((s) => s.setFilter)
   const clearFilter = useDashboardStore((s) => s.clearFilter)
 
-  const hasFilter = filter.selectedCategory || filter.selectedMonth || filter.selectedDate
+  const hasFilter = filter.selectedCategory || filter.selectedMonth || filter.selectedDate || filter.selectedMerchant
   if (!hasFilter) return null
 
   return (
@@ -40,6 +40,15 @@ export default function FilterBar() {
             className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-2.5 py-1 text-xs text-amber-400 transition-colors hover:opacity-80"
           >
             {filter.selectedDate}
+            <X className="h-3 w-3" />
+          </button>
+        )}
+        {filter.selectedMerchant && (
+          <button
+            onClick={() => setFilter({ selectedMerchant: null })}
+            className="inline-flex items-center gap-1.5 rounded-md bg-violet-500/15 px-2.5 py-1 text-xs text-violet-400 transition-colors hover:opacity-80"
+          >
+            {filter.selectedMerchant}
             <X className="h-3 w-3" />
           </button>
         )}

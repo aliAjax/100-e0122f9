@@ -23,16 +23,26 @@ function getProgressText(ratio: number): string {
   return 'text-emerald-400'
 }
 
+function getLatestMonth(transactions: { date: string }[]): string | null {
+  if (transactions.length === 0) return null
+  const months = new Set(transactions.map((t) => t.date.slice(0, 7)))
+  const sorted = Array.from(months).sort()
+  return sorted.length > 0 ? sorted[sorted.length - 1] : null
+}
+
 export default function BudgetProgress() {
   const transactions = useDashboardStore((s) => s.transactions)
   const filter = useDashboardStore((s) => s.filter)
   const budgets = useBudgetStore((s) => s.budgets)
 
   const budgetCategories = useMemo(() => Object.keys(budgets), [budgets])
+  const latestMonth = useMemo(() => getLatestMonth(transactions), [transactions])
+
+  const effectiveMonth = filter.selectedMonth ?? latestMonth
 
   const filtered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: filter.selectedMonth, selectedDate: null }),
-    [transactions, filter.selectedMonth],
+    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: effectiveMonth, selectedDate: null }),
+    [transactions, effectiveMonth],
   )
 
   const categoryData = useMemo(() => aggregateByCategory(filtered), [filtered])
@@ -61,7 +71,7 @@ export default function BudgetProgress() {
 
   if (items.length === 0) return null
 
-  const monthLabel = filter.selectedMonth ?? '当期'
+  const monthLabel = effectiveMonth ?? '暂无数据'
 
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">

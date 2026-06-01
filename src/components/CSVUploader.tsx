@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react'
 import { Upload, FileText, AlertCircle } from 'lucide-react'
-import { parseCSV } from '@/utils/csvParser'
+import { previewCSV } from '@/utils/csvParser'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function CSVUploader() {
-  const setTransactions = useDashboardStore((s) => s.setTransactions)
+  const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,19 +19,15 @@ export default function CSVUploader() {
       setLoading(true)
       setError(null)
       try {
-        const txs = await parseCSV(file)
-        if (txs.length === 0) {
-          setError('未解析到有效交易记录，请检查 CSV 格式')
-          return
-        }
-        setTransactions(txs)
+        const result = await previewCSV(file)
+        setPreviewResult(result)
       } catch (e) {
         setError((e as Error).message)
       } finally {
         setLoading(false)
       }
     },
-    [setTransactions],
+    [setPreviewResult],
   )
 
   const onDrop = useCallback(

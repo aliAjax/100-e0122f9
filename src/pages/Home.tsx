@@ -1,7 +1,8 @@
 import { BarChart3, Trash2, Upload } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
-import { parseCSV } from '@/utils/csvParser'
+import { previewCSV } from '@/utils/csvParser'
 import CSVUploader from '@/components/CSVUploader'
+import CSVPreviewModal from '@/components/CSVPreviewModal'
 import StatsCards from '@/components/StatsCards'
 import TrendChart from '@/components/TrendChart'
 import CategoryPie from '@/components/CategoryPie'
@@ -13,6 +14,7 @@ export default function Home() {
   const dataLoaded = useDashboardStore((s) => s.dataLoaded)
   const transactions = useDashboardStore((s) => s.transactions)
   const clearData = useDashboardStore((s) => s.clearData)
+  const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
@@ -39,8 +41,10 @@ export default function Home() {
                   <input type="file" accept=".csv" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return
-                    const txs = await parseCSV(file)
-                    if (txs.length > 0) useDashboardStore.getState().setTransactions(txs)
+                    try {
+                      const result = await previewCSV(file)
+                      setPreviewResult(result)
+                    } catch { /* previewCSV handles errors internally */ }
                   }} />
                 </label>
                 <button
@@ -93,6 +97,8 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      <CSVPreviewModal />
     </div>
   )
 }

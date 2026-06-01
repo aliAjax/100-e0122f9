@@ -1,5 +1,6 @@
 import { BarChart3, Trash2, Upload } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
+import { parseCSV } from '@/utils/csvParser'
 import CSVUploader from '@/components/CSVUploader'
 import StatsCards from '@/components/StatsCards'
 import TrendChart from '@/components/TrendChart'
@@ -38,7 +39,6 @@ export default function Home() {
                   <input type="file" accept=".csv" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return
-                    const { parseCSV } = await import('@/utils/csvParser')
                     const txs = await parseCSV(file)
                     if (txs.length > 0) useDashboardStore.getState().setTransactions(txs)
                   }} />

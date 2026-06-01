@@ -1,4 +1,5 @@
-import { BarChart3, Trash2, Upload } from 'lucide-react'
+import { useState } from 'react'
+import { BarChart3, Trash2, Upload, AlertCircle } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { previewCSV } from '@/utils/csvParser'
 import CSVUploader from '@/components/CSVUploader'
@@ -15,6 +16,7 @@ export default function Home() {
   const transactions = useDashboardStore((s) => s.transactions)
   const clearData = useDashboardStore((s) => s.clearData)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
+  const [reimportError, setReimportError] = useState<string | null>(null)
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
@@ -41,10 +43,18 @@ export default function Home() {
                   <input type="file" accept=".csv" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return
+                    setReimportError(null)
                     try {
                       const result = await previewCSV(file)
-                      setPreviewResult(result)
-                    } catch { /* previewCSV handles errors internally */ }
+                      if (result.validCount === 0) {
+                        const firstReason = result.invalidReasons[0] ?? '未解析到有效交易记录'
+                        setReimportError(firstReason)
+                      } else {
+                        setPreviewResult(result)
+                      }
+                    } catch (e) {
+                      setReimportError((e as Error).message)
+                    }
                   }} />
                 </label>
                 <button
@@ -59,6 +69,23 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {reimportError && (
+        <div className="border-b border-red-500/20 bg-red-500/5 px-6 py-2">
+          <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>导入失败：{reimportError}</span>
+            </div>
+            <button
+              onClick={() => setReimportError(null)}
+              className="text-xs text-red-400/70 transition-colors hover:text-red-400"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-[1400px] px-6 py-6">
         {!dataLoaded ? (

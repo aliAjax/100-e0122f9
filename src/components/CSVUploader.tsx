@@ -20,7 +20,12 @@ export default function CSVUploader() {
       setError(null)
       try {
         const result = await previewCSV(file)
-        setPreviewResult(result)
+        if (result.validCount === 0) {
+          const firstReason = result.invalidReasons[0] ?? '未解析到有效交易记录'
+          setError(firstReason)
+        } else {
+          setPreviewResult(result)
+        }
       } catch (e) {
         setError((e as Error).message)
       } finally {

@@ -151,12 +151,13 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
         }
 
         if (!dateCol || !amountCol) {
+          const dataRows = (results.data as Record<string, string>[]).length
           resolve({
             headers,
             mappedColumns,
-            totalRows: (results.data as Record<string, string>[]).length,
+            totalRows: dataRows,
             validCount: 0,
-            invalidCount: (results.data as Record<string, string>[]).length,
+            invalidCount: dataRows > 0 ? dataRows : 1,
             invalidReasons: ['CSV 缺少必要列：日期(date) 和 金额(amount)'],
             previewRows: [],
             allTransactions: [],
@@ -173,13 +174,20 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
           amountCol,
         )
 
+        const finalInvalidReasons = [...invalidReasons]
+        if (rows.length === 0) {
+          finalInvalidReasons.unshift('CSV 文件没有数据行（只有表头）')
+        } else if (transactions.length === 0 && invalidReasons.length === 0) {
+          finalInvalidReasons.unshift('未识别到有效交易记录，请检查 CSV 格式')
+        }
+
         resolve({
           headers,
           mappedColumns,
           totalRows: rows.length,
           validCount: transactions.length,
-          invalidCount,
-          invalidReasons,
+          invalidCount: rows.length === 0 ? 1 : invalidCount,
+          invalidReasons: finalInvalidReasons,
           previewRows: transactions.slice(0, 10),
           allTransactions: transactions,
         })

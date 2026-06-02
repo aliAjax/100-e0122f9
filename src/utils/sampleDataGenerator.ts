@@ -89,11 +89,23 @@ function seededRandom(seed: number): number {
   return x - Math.floor(x)
 }
 
+interface SpecialTransactionTemplate {
+  month: number
+  day: number
+  category: string
+  merchant: string
+  amount: number
+}
+
 export function generateSampleData(): Transaction[] {
   const transactions: Transaction[] = []
   const now = new Date()
-  const endYear = now.getFullYear()
-  const endMonth = now.getMonth() + 1
+  const todayYear = now.getFullYear()
+  const todayMonth = now.getMonth() + 1
+  const todayDay = now.getDate()
+
+  const endYear = todayYear
+  const endMonth = todayMonth
   const startYear = endMonth >= 12 ? endYear : endYear - 1
   const startMonth = endMonth >= 12 ? 1 : endMonth + 1
 
@@ -104,6 +116,22 @@ export function generateSampleData(): Transaction[] {
     1.05, 1.15, 0.92, 0.98, 1.4, 1.6,
   ]
 
+  function getYearForMonth(month: number): number {
+    return month >= startMonth ? startYear : endYear
+  }
+
+  function isDateInRange(year: number, month: number, day: number): boolean {
+    if (year < startYear || year > endYear) return false
+    if (year === startYear && month < startMonth) return false
+    if (year === endYear && month > endMonth) return false
+    if (year === endYear && month === endMonth && day > todayDay) return false
+    return true
+  }
+
+  function isFutureDate(month: number, day: number): boolean {
+    return month === todayMonth && day > todayDay
+  }
+
   for (let monthOffset = 0; monthOffset < 12; monthOffset++) {
     let currentYear = startYear
     let currentMonth = startMonth + monthOffset
@@ -113,14 +141,16 @@ export function generateSampleData(): Transaction[] {
     }
 
     const monthWeight = monthWeights[currentMonth - 1]
+    const isCurrentMonth = currentYear === todayYear && currentMonth === todayMonth
     const daysInMonth = getDaysInMonth(currentYear, currentMonth)
+    const maxDay = isCurrentMonth ? todayDay : daysInMonth
 
     for (const config of CATEGORY_CONFIGS) {
       const baseFrequency = randomInt(config.monthlyFrequency[0], config.monthlyFrequency[1])
       const frequency = Math.max(1, Math.round(baseFrequency * monthWeight))
 
       for (let i = 0; i < frequency; i++) {
-        const day = randomInt(1, daysInMonth)
+        const day = randomInt(1, maxDay)
         const date = formatDate(currentYear, currentMonth, day)
         const seed = idCounter + currentYear * 10000 + currentMonth * 100 + day
         const amountVariation = 0.7 + seededRandom(seed) * 0.6
@@ -138,42 +168,54 @@ export function generateSampleData(): Transaction[] {
     }
   }
 
-  const specialTransactions: Omit<Transaction, 'id'>[] = [
-    { date: formatDate(endYear, 1, 1), category: '餐饮', merchant: '海底捞', amount: 458.00 },
-    { date: formatDate(endYear, 2, 14), category: '购物', merchant: '京东', amount: 1314.00 },
-    { date: formatDate(endYear, 4, 5), category: '交通', merchant: '12306', amount: 680.00 },
-    { date: formatDate(endYear, 5, 1), category: '娱乐', merchant: '演唱会', amount: 880.00 },
-    { date: formatDate(endYear, 6, 18), category: '购物', merchant: '淘宝', amount: 2599.00 },
-    { date: formatDate(endYear, 9, 10), category: '教育', merchant: '学而思', amount: 3280.00 },
-    { date: formatDate(endYear, 10, 1), category: '交通', merchant: '飞机票', amount: 2180.00 },
-    { date: formatDate(endYear, 11, 11), category: '购物', merchant: '天猫', amount: 3999.00 },
-    { date: formatDate(endYear, 12, 12), category: '购物', merchant: '拼多多', amount: 1899.00 },
-    { date: formatDate(endYear, 12, 25), category: '餐饮', merchant: '必胜客', amount: 268.00 },
+  const specialTransactions: SpecialTransactionTemplate[] = [
+    { month: 1, day: 1, category: '餐饮', merchant: '海底捞', amount: 458.00 },
+    { month: 2, day: 14, category: '购物', merchant: '京东', amount: 1314.00 },
+    { month: 4, day: 5, category: '交通', merchant: '12306', amount: 680.00 },
+    { month: 5, day: 1, category: '娱乐', merchant: '演唱会', amount: 880.00 },
+    { month: 6, day: 18, category: '购物', merchant: '淘宝', amount: 2599.00 },
+    { month: 9, day: 10, category: '教育', merchant: '学而思', amount: 3280.00 },
+    { month: 10, day: 1, category: '交通', merchant: '飞机票', amount: 2180.00 },
+    { month: 11, day: 11, category: '购物', merchant: '天猫', amount: 3999.00 },
+    { month: 12, day: 12, category: '购物', merchant: '拼多多', amount: 1899.00 },
+    { month: 12, day: 25, category: '餐饮', merchant: '必胜客', amount: 268.00 },
   ]
 
   for (const tx of specialTransactions) {
+    const year = getYearForMonth(tx.month)
+    if (!isDateInRange(year, tx.month, tx.day)) continue
+    if (isFutureDate(tx.month, tx.day)) continue
+
     transactions.push({
-      ...tx,
       id: `sample_${Date.now()}_${idCounter++}`,
+      date: formatDate(year, tx.month, tx.day),
+      category: tx.category,
+      merchant: tx.merchant,
+      amount: tx.amount,
     })
   }
 
   for (let m = 1; m <= 12; m++) {
-    const y = m <= endMonth ? endYear : endYear - 1
-    transactions.push({
-      id: `sample_${Date.now()}_${idCounter++}`,
-      date: formatDate(y, m, 5),
-      category: '居住',
-      merchant: '房租',
-      amount: 4500.00,
-    })
-    transactions.push({
-      id: `sample_${Date.now()}_${idCounter++}`,
-      date: formatDate(y, m, 10),
-      category: '通讯',
-      merchant: '中国移动',
-      amount: 128.00,
-    })
+    const y = getYearForMonth(m)
+
+    if (isDateInRange(y, m, 5) && !isFutureDate(m, 5)) {
+      transactions.push({
+        id: `sample_${Date.now()}_${idCounter++}`,
+        date: formatDate(y, m, 5),
+        category: '居住',
+        merchant: '房租',
+        amount: 4500.00,
+      })
+    }
+    if (isDateInRange(y, m, 10) && !isFutureDate(m, 10)) {
+      transactions.push({
+        id: `sample_${Date.now()}_${idCounter++}`,
+        date: formatDate(y, m, 10),
+        category: '通讯',
+        merchant: '中国移动',
+        amount: 128.00,
+      })
+    }
   }
 
   transactions.sort((a, b) => a.date.localeCompare(b.date))

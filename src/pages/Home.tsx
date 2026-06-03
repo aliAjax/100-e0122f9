@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag } from 'lucide-react'
+import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag, GitCompare } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useDashboardStore, useDataLoaded, useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
@@ -61,6 +62,13 @@ export default function Home() {
               <Wallet className="h-3.5 w-3.5" />
               预算设置
             </button>
+            <Link
+              to="/monthly-comparison"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
+            >
+              <GitCompare className="h-3.5 w-3.5" />
+              月度对比
+            </Link>
             {bills.length > 0 && (
               <>
                 <div className="h-5 w-px bg-slate-700/50" />

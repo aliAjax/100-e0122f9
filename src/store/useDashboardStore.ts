@@ -78,10 +78,6 @@ interface DashboardStore {
   currentBillId: string | null
   previewResult: CSVPreviewResult | null
   pendingBillName: string | null
-  get currentBill(): Bill | undefined
-  get transactions(): Transaction[]
-  get filter(): FilterState
-  get dataLoaded(): boolean
   createBill: (name: string, transactions: Transaction[]) => void
   switchBill: (billId: string) => void
   renameBill: (billId: string, name: string) => void
@@ -95,28 +91,27 @@ interface DashboardStore {
   confirmPreview: (billName: string) => void
 }
 
+function getCurrentBill(state: DashboardStore): Bill | undefined {
+  return state.bills.find((b) => b.id === state.currentBillId)
+}
+
+function getCurrentTransactions(state: DashboardStore): Transaction[] {
+  return getCurrentBill(state)?.transactions ?? []
+}
+
+function getCurrentFilter(state: DashboardStore): FilterState {
+  return getCurrentBill(state)?.filter ?? createEmptyFilter()
+}
+
+function getDataLoaded(state: DashboardStore): boolean {
+  return (getCurrentBill(state)?.transactions.length ?? 0) > 0
+}
+
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
   bills: loadBills(),
   currentBillId: loadCurrentBillId(),
   previewResult: null,
   pendingBillName: null,
-
-  get currentBill() {
-    const { bills, currentBillId } = get()
-    return bills.find((b) => b.id === currentBillId)
-  },
-
-  get transactions() {
-    return get().currentBill?.transactions ?? []
-  },
-
-  get filter() {
-    return get().currentBill?.filter ?? createEmptyFilter()
-  },
-
-  get dataLoaded() {
-    return (get().currentBill?.transactions.length ?? 0) > 0
-  },
 
   createBill: (name, transactions) => {
     const newBill: Bill = {
@@ -225,29 +220,17 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 }))
 
 export function useCurrentBill(): Bill | null {
-  return useDashboardStore((s) => {
-    const bill = s.bills.find((b) => b.id === s.currentBillId)
-    return bill ?? null
-  })
+  return useDashboardStore((s) => getCurrentBill(s) ?? null)
 }
 
 export function useTransactions(): Transaction[] {
-  return useDashboardStore((s) => {
-    const bill = s.bills.find((b) => b.id === s.currentBillId)
-    return bill?.transactions ?? []
-  })
+  return useDashboardStore((s) => getCurrentTransactions(s))
 }
 
 export function useFilter(): FilterState {
-  return useDashboardStore((s) => {
-    const bill = s.bills.find((b) => b.id === s.currentBillId)
-    return bill?.filter ?? createEmptyFilter()
-  })
+  return useDashboardStore((s) => getCurrentFilter(s))
 }
 
 export function useDataLoaded(): boolean {
-  return useDashboardStore((s) => {
-    const bill = s.bills.find((b) => b.id === s.currentBillId)
-    return (bill?.transactions.length ?? 0) > 0
-  })
+  return useDashboardStore((s) => getDataLoaded(s))
 }

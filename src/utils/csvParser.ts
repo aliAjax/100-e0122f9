@@ -36,9 +36,10 @@ function determineTransactionType(
     }
   }
 
-  if (parsedAmount < 0) return 'income'
   if (rawAmount.startsWith('+') || rawAmount.startsWith('＋')) return 'income'
   if (rawAmount.startsWith('-') || rawAmount.startsWith('－')) return 'expense'
+
+  if (parsedAmount < 0) return 'expense'
 
   return 'expense'
 }

@@ -96,7 +96,8 @@ function parseRows(
       continue
     }
 
-    const signedAmount = parseFloat(rawAmount.replace(/[,，]/g, ''))
+    const normalizedAmount = rawAmount.replace(/[，]/g, ',').replace(/[＋]/g, '+').replace(/[－]/g, '-')
+    const signedAmount = parseFloat(normalizedAmount.replace(/[,]/g, ''))
     const amount = Math.abs(signedAmount)
     if (isNaN(amount)) {
       invalidCount++

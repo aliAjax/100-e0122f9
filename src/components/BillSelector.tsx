@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Plus, Edit2, Trash2, FileText, Check, X } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useCurrentBill } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function BillSelector() {
   const bills = useDashboardStore((s) => s.bills)
   const currentBillId = useDashboardStore((s) => s.currentBillId)
-  const currentBill = useDashboardStore((s) => s.currentBill)
+  const currentBill = useCurrentBill()
   const switchBill = useDashboardStore((s) => s.switchBill)
   const renameBill = useDashboardStore((s) => s.renameBill)
   const deleteBill = useDashboardStore((s) => s.deleteBill)

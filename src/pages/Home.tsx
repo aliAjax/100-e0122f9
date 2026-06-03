@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useDataLoaded, useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { previewCSV } from '@/utils/csvParser'
@@ -20,13 +20,12 @@ import AnnualSummary from '@/components/AnnualSummary'
 import FilterBar from '@/components/FilterBar'
 
 export default function Home() {
-  const dataLoaded = useDashboardStore((s) => s.dataLoaded)
-  const transactions = useDashboardStore((s) => s.transactions)
+  const dataLoaded = useDataLoaded()
+  const transactions = useTransactions()
   const bills = useDashboardStore((s) => s.bills)
   const clearData = useDashboardStore((s) => s.clearData)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
   const setPendingBillName = useDashboardStore((s) => s.setPendingBillName)
-  const currentBillId = useDashboardStore((s) => s.currentBillId)
   const [reimportError, setReimportError] = useState<string | null>(null)
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const [categoryRuleModalOpen, setCategoryRuleModalOpen] = useState(false)

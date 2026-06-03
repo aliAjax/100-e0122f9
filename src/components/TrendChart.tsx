@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { aggregateByMonth, applyFilter } from '@/utils/dataAggregation'
 import { getCategoryColor } from '@/types'
 
 export default function TrendChart() {
-  const transactions = useDashboardStore((s) => s.transactions)
-  const filter = useDashboardStore((s) => s.filter)
+  const transactions = useTransactions()
+  const filter = useFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])

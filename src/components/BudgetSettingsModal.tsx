@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { getCategoryColor } from '@/types'
 
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function BudgetSettingsModal({ open, onClose }: Props) {
-  const transactions = useDashboardStore((s) => s.transactions)
+  const transactions = useTransactions()
   const budgets = useBudgetStore((s) => s.budgets)
   const setBudget = useBudgetStore((s) => s.setBudget)
   const removeBudget = useBudgetStore((s) => s.removeBudget)

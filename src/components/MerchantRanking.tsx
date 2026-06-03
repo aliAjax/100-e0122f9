@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Store } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
 
 interface MerchantStat {
@@ -11,8 +11,8 @@ interface MerchantStat {
 }
 
 export default function MerchantRanking() {
-  const transactions = useDashboardStore((s) => s.transactions)
-  const filter = useDashboardStore((s) => s.filter)
+  const transactions = useTransactions()
+  const filter = useFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const unfiltered = useMemo(

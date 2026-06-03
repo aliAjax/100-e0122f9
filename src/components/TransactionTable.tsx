@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor } from '@/types'
 
 const PAGE_SIZE = 20
 
 export default function TransactionTable() {
-  const transactions = useDashboardStore((s) => s.transactions)
-  const filter = useDashboardStore((s) => s.filter)
+  const transactions = useTransactions()
+  const filter = useFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])

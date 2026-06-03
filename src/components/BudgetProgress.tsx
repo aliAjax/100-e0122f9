@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useTransactions, useFilter } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { applyFilter, aggregateByCategory, formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor } from '@/types'
@@ -31,8 +31,8 @@ function getLatestMonth(transactions: { date: string }[]): string | null {
 }
 
 export default function BudgetProgress() {
-  const transactions = useDashboardStore((s) => s.transactions)
-  const filter = useDashboardStore((s) => s.filter)
+  const transactions = useTransactions()
+  const filter = useFilter()
   const budgets = useBudgetStore((s) => s.budgets)
 
   const budgetCategories = useMemo(() => Object.keys(budgets), [budgets])

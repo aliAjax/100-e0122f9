@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { X, Plus, Trash2, Tag, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useTransactions } from '@/store/useDashboardStore'
 import { CATEGORY_LIST, getCategoryColor } from '@/types'
 import { applyCategoryRulesWithPreserve } from '@/utils/categoryRuleMatcher'
 import { cn } from '@/lib/utils'
@@ -18,7 +18,7 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
   const removeRule = useCategoryRuleStore((s) => s.removeRule)
   const toggleRule = useCategoryRuleStore((s) => s.toggleRule)
 
-  const transactions = useDashboardStore((s) => s.transactions)
+  const transactions = useTransactions()
   const setCurrentBillTransactions = useDashboardStore((s) => s.setCurrentBillTransactions)
 
   const [newKeyword, setNewKeyword] = useState('')

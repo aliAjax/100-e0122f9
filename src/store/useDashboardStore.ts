@@ -223,3 +223,31 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     get().createBill(billName, txs)
   },
 }))
+
+export function useCurrentBill(): Bill | null {
+  return useDashboardStore((s) => {
+    const bill = s.bills.find((b) => b.id === s.currentBillId)
+    return bill ?? null
+  })
+}
+
+export function useTransactions(): Transaction[] {
+  return useDashboardStore((s) => {
+    const bill = s.bills.find((b) => b.id === s.currentBillId)
+    return bill?.transactions ?? []
+  })
+}
+
+export function useFilter(): FilterState {
+  return useDashboardStore((s) => {
+    const bill = s.bills.find((b) => b.id === s.currentBillId)
+    return bill?.filter ?? createEmptyFilter()
+  })
+}
+
+export function useDataLoaded(): boolean {
+  return useDashboardStore((s) => {
+    const bill = s.bills.find((b) => b.id === s.currentBillId)
+    return (bill?.transactions.length ?? 0) > 0
+  })
+}

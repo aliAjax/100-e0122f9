@@ -1,9 +1,9 @@
 import { X, Filter } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useFilter } from '@/store/useDashboardStore'
 import { getCategoryColor } from '@/types'
 
 export default function FilterBar() {
-  const filter = useDashboardStore((s) => s.filter)
+  const filter = useFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const clearFilter = useDashboardStore((s) => s.clearFilter)
 

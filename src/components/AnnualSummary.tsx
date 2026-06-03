@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Coins, Calendar, Tag, Store, TrendingUp } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useTransactions } from '@/store/useDashboardStore'
 import { aggregateByMonth, aggregateByCategory, formatCurrency } from '@/utils/dataAggregation'
 
 function SummaryItem({ icon: Icon, label, value, sub, accent }: { icon: React.ElementType; label: string; value: string; sub?: string; accent: string }) {
@@ -19,7 +19,7 @@ function SummaryItem({ icon: Icon, label, value, sub, accent }: { icon: React.El
 }
 
 export default function AnnualSummary() {
-  const transactions = useDashboardStore((s) => s.transactions)
+  const transactions = useTransactions()
 
   const stats = useMemo(() => {
     if (transactions.length === 0) {

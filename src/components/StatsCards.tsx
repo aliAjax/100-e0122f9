@@ -1,5 +1,5 @@
 import { Wallet, TrendingUp, ArrowUpRight, CalendarDays } from 'lucide-react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useTransactions, useFilter } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
 
 function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string; accent: string }) {
@@ -17,8 +17,8 @@ function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementTyp
 }
 
 export default function StatsCards() {
-  const transactions = useDashboardStore((s) => s.transactions)
-  const filter = useDashboardStore((s) => s.filter)
+  const transactions = useTransactions()
+  const filter = useFilter()
 
   const filtered = applyFilter(transactions, filter)
 

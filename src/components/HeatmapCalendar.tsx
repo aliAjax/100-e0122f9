@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useDashboardStore } from '@/store/useDashboardStore'
+import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { aggregateByDay, applyFilter, formatCurrency } from '@/utils/dataAggregation'
 
 const CELL_SIZE = 14
@@ -37,8 +37,8 @@ function getHeatColor(value: number, max: number): string {
 }
 
 export default function HeatmapCalendar() {
-  const transactions = useDashboardStore((s) => s.transactions)
-  const filter = useDashboardStore((s) => s.filter)
+  const transactions = useTransactions()
+  const filter = useFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const [tooltip, setTooltip] = useState<{ date: string; amount: number; x: number; y: number } | null>(null)

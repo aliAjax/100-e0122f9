@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { X, Plus, Trash2, Tag, RefreshCw, Check } from 'lucide-react'
+import { X, Plus, Trash2, Tag, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { CATEGORY_LIST, getCategoryColor } from '@/types'
@@ -212,6 +212,16 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
                 重新归类完成：
                 <span className="font-medium text-emerald-400">{reclassifyResult.matched}</span> 条记录已更新分类，
                 <span className="font-medium text-slate-400">{reclassifyResult.unchanged}</span> 条记录保持不变
+              </div>
+            </div>
+          )}
+
+          {transactions.length === 0 && rules.length > 0 && (
+            <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
+              <div className="text-xs text-amber-300/90">
+                已配置 <span className="font-medium text-amber-400">{rules.length}</span> 条分类规则，
+                导入 CSV 时会自动应用这些规则进行归类
               </div>
             </div>
           )}

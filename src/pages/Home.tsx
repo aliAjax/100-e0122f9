@@ -43,8 +43,23 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCategoryRuleModalOpen(true)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasCategoryRules ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              分类规则
+            </button>
+            <button
+              onClick={() => setBudgetModalOpen(true)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasBudgets ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              预算设置
+            </button>
             {dataLoaded && (
               <>
+                <div className="h-5 w-px bg-slate-700/50" />
                 <span className="rounded-full bg-slate-700/50 px-3 py-1 text-xs text-slate-400">
                   {transactions.length} 条记录
                 </span>
@@ -68,20 +83,6 @@ export default function Home() {
                     }
                   }} />
                 </label>
-                <button
-                  onClick={() => setCategoryRuleModalOpen(true)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasCategoryRules ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
-                >
-                  <Tag className="h-3.5 w-3.5" />
-                  分类规则
-                </button>
-                <button
-                  onClick={() => setBudgetModalOpen(true)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasBudgets ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
-                >
-                  <Wallet className="h-3.5 w-3.5" />
-                  预算设置
-                </button>
                 <button
                   onClick={clearData}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"

@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { BarChart3, Trash2, Upload, AlertCircle, Wallet } from 'lucide-react'
+import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
+import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { previewCSV } from '@/utils/csvParser'
 import CSVUploader from '@/components/CSVUploader'
 import CSVPreviewModal from '@/components/CSVPreviewModal'
 import BudgetSettingsModal from '@/components/BudgetSettingsModal'
+import CategoryRuleModal from '@/components/CategoryRuleModal'
 import BudgetProgress from '@/components/BudgetProgress'
 import StatsCards from '@/components/StatsCards'
 import TrendChart from '@/components/TrendChart'
@@ -23,7 +25,9 @@ export default function Home() {
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
   const [reimportError, setReimportError] = useState<string | null>(null)
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+  const [categoryRuleModalOpen, setCategoryRuleModalOpen] = useState(false)
   const hasBudgets = useBudgetStore((s) => Object.keys(s.budgets).length > 0)
+  const hasCategoryRules = useCategoryRuleStore((s) => s.rules.length > 0)
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">
@@ -64,6 +68,13 @@ export default function Home() {
                     }
                   }} />
                 </label>
+                <button
+                  onClick={() => setCategoryRuleModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasCategoryRules ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  分类规则
+                </button>
                 <button
                   onClick={() => setBudgetModalOpen(true)}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasBudgets ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
@@ -144,6 +155,7 @@ export default function Home() {
 
       <CSVPreviewModal />
       <BudgetSettingsModal open={budgetModalOpen} onClose={() => setBudgetModalOpen(false)} />
+      <CategoryRuleModal open={categoryRuleModalOpen} onClose={() => setCategoryRuleModalOpen(false)} />
     </div>
   )
 }

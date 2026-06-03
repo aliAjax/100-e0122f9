@@ -57,3 +57,12 @@ export const DEFAULT_COLORS = [
 export function getCategoryColor(category: string, index: number): string {
   return CATEGORY_COLORS[category] ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length]
 }
+
+export interface CategoryRule {
+  id: string
+  keyword: string
+  category: string
+  enabled: boolean
+}
+
+export const CATEGORY_LIST = ['餐饮', '交通', '购物', '娱乐', '居住', '医疗', '教育', '通讯', '其他']

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { Transaction, FilterState } from '@/types'
 import type { CSVPreviewResult } from '@/utils/csvParser'
+import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
+import { useCategoryRuleStore } from './useCategoryRuleStore'
 
 const STORAGE_KEY = 'spendlens_transactions'
 
@@ -67,7 +69,8 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       if (!state.previewResult || state.previewResult.allTransactions.length === 0) {
         return { previewResult: null }
       }
-      const txs = state.previewResult.allTransactions
+      const rules = useCategoryRuleStore.getState().rules
+      const { transactions: txs } = applyCategoryRules(state.previewResult.allTransactions, rules, true)
       saveTransactions(txs)
       return {
         transactions: txs,

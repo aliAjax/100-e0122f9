@@ -19,7 +19,7 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
   const toggleRule = useCategoryRuleStore((s) => s.toggleRule)
 
   const transactions = useDashboardStore((s) => s.transactions)
-  const setTransactions = useDashboardStore((s) => s.setTransactions)
+  const setCurrentBillTransactions = useDashboardStore((s) => s.setCurrentBillTransactions)
 
   const [newKeyword, setNewKeyword] = useState('')
   const [newCategory, setNewCategory] = useState(CATEGORY_LIST[0])
@@ -100,7 +100,7 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 500))
       const result = applyCategoryRulesWithPreserve(transactions, enabledRules)
-      setTransactions(result.transactions)
+      setCurrentBillTransactions(result.transactions)
       setReclassifyResult({
         matched: result.matchedCount,
         unchanged: result.unchangedCount,

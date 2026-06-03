@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils'
 
 export default function CSVUploader() {
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
-  const setTransactions = useDashboardStore((s) => s.setTransactions)
+  const setPendingBillName = useDashboardStore((s) => s.setPendingBillName)
+  const createBill = useDashboardStore((s) => s.createBill)
+  const bills = useDashboardStore((s) => s.bills)
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -21,21 +23,24 @@ export default function CSVUploader() {
       }
       setLoading(true)
       setError(null)
+      setPendingBillName(`账单 ${bills.length + 1}`)
       try {
         const result = await previewCSV(file)
         if (result.validCount === 0) {
           const firstReason = result.invalidReasons[0] ?? '未解析到有效交易记录'
           setError(firstReason)
+          setPendingBillName(null)
         } else {
           setPreviewResult(result)
         }
       } catch (e) {
         setError((e as Error).message)
+        setPendingBillName(null)
       } finally {
         setLoading(false)
       }
     },
-    [setPreviewResult],
+    [setPreviewResult, setPendingBillName, bills.length],
   )
 
   const onDrop = useCallback(
@@ -69,13 +74,13 @@ export default function CSVUploader() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 600))
       const sampleData = generateSampleData()
-      setTransactions(sampleData)
+      createBill(`示例账单 ${bills.length + 1}`, sampleData)
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setGenerating(false)
     }
-  }, [setTransactions])
+  }, [createBill, bills.length])
 
   return (
     <div

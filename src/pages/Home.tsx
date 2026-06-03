@@ -8,6 +8,7 @@ import CSVUploader from '@/components/CSVUploader'
 import CSVPreviewModal from '@/components/CSVPreviewModal'
 import BudgetSettingsModal from '@/components/BudgetSettingsModal'
 import CategoryRuleModal from '@/components/CategoryRuleModal'
+import BillSelector from '@/components/BillSelector'
 import BudgetProgress from '@/components/BudgetProgress'
 import StatsCards from '@/components/StatsCards'
 import TrendChart from '@/components/TrendChart'
@@ -21,8 +22,11 @@ import FilterBar from '@/components/FilterBar'
 export default function Home() {
   const dataLoaded = useDashboardStore((s) => s.dataLoaded)
   const transactions = useDashboardStore((s) => s.transactions)
+  const bills = useDashboardStore((s) => s.bills)
   const clearData = useDashboardStore((s) => s.clearData)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
+  const setPendingBillName = useDashboardStore((s) => s.setPendingBillName)
+  const currentBillId = useDashboardStore((s) => s.currentBillId)
   const [reimportError, setReimportError] = useState<string | null>(null)
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const [categoryRuleModalOpen, setCategoryRuleModalOpen] = useState(false)
@@ -57,38 +61,47 @@ export default function Home() {
               <Wallet className="h-3.5 w-3.5" />
               预算设置
             </button>
-            {dataLoaded && (
+            {bills.length > 0 && (
               <>
                 <div className="h-5 w-px bg-slate-700/50" />
+                <BillSelector />
                 <span className="rounded-full bg-slate-700/50 px-3 py-1 text-xs text-slate-400">
                   {transactions.length} 条记录
                 </span>
+              </>
+            )}
+            {dataLoaded && (
+              <>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60">
                   <Upload className="h-3.5 w-3.5" />
-                  重新导入
-                  <input type="file" accept=".csv" className="hidden" onChange={async (e) => {
+                  导入新账单
+                  <input id="bill-file-input" type="file" accept=".csv" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return
                     setReimportError(null)
+                    setPendingBillName(`账单 ${bills.length + 1}`)
                     try {
                       const result = await previewCSV(file)
                       if (result.validCount === 0) {
                         const firstReason = result.invalidReasons[0] ?? '未解析到有效交易记录'
                         setReimportError(firstReason)
+                        setPendingBillName(null)
                       } else {
                         setPreviewResult(result)
                       }
                     } catch (e) {
                       setReimportError((e as Error).message)
+                      setPendingBillName(null)
                     }
                   }} />
                 </label>
                 <button
                   onClick={clearData}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                  title="删除当前账单"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  清除数据
+                  删除账单
                 </button>
               </>
             )}

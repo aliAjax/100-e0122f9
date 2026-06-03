@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, X, FileSpreadsheet } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
@@ -11,8 +12,13 @@ const FIELD_LABELS: Record<string, string> = {
 
 export default function CSVPreviewModal() {
   const previewResult = useDashboardStore((s) => s.previewResult)
+  const pendingBillName = useDashboardStore((s) => s.pendingBillName)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
+  const setPendingBillName = useDashboardStore((s) => s.setPendingBillName)
   const confirmPreview = useDashboardStore((s) => s.confirmPreview)
+  const bills = useDashboardStore((s) => s.bills)
+
+  const [billName, setBillName] = useState(pendingBillName || `账单 ${bills.length + 1}`)
 
   if (!previewResult) return null
 
@@ -155,26 +161,45 @@ export default function CSVPreviewModal() {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-slate-700/40 px-6 py-4">
-          <button
-            onClick={() => setPreviewResult(null)}
-            className="rounded-xl bg-slate-700/40 px-5 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700/60"
-          >
-            取消
-          </button>
-          <button
-            onClick={confirmPreview}
-            disabled={hasError}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition-all',
-              hasError
-                ? 'cursor-not-allowed bg-slate-700/30 text-slate-600'
-                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]',
-            )}
-          >
-            <CheckCircle className="h-4 w-4" />
-            确认导入{previewResult.validCount > 0 ? `（${previewResult.validCount} 条）` : ''}
-          </button>
+        <div className="border-t border-slate-700/40 px-6 py-4">
+          <div className="mb-4">
+            <label className="mb-1.5 block text-xs font-medium text-slate-400">账单名称</label>
+            <input
+              type="text"
+              value={billName}
+              onChange={(e) => setBillName(e.target.value)}
+              placeholder="请输入账单名称"
+              maxLength={50}
+              className="w-full rounded-lg border border-slate-600/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none transition-colors focus:border-emerald-500/50 focus:bg-slate-800/80"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => {
+                setPreviewResult(null)
+                setPendingBillName(null)
+              }}
+              className="rounded-xl bg-slate-700/40 px-5 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700/60"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => {
+                confirmPreview(billName)
+                setPendingBillName(null)
+              }}
+              disabled={hasError || !billName.trim()}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition-all',
+                hasError || !billName.trim()
+                  ? 'cursor-not-allowed bg-slate-700/30 text-slate-600'
+                  : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]',
+              )}
+            >
+              <CheckCircle className="h-4 w-4" />
+              确认导入{previewResult.validCount > 0 ? `（${previewResult.validCount} 条）` : ''}
+            </button>
+          </div>
         </div>
       </div>
     </div>

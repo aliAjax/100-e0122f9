@@ -13,6 +13,14 @@ export interface FilterState {
   selectedMerchant: string | null
 }
 
+export interface Bill {
+  id: string
+  name: string
+  transactions: Transaction[]
+  filter: FilterState
+  createdAt: number
+}
+
 export interface MonthlyData {
   month: string
   amount: number

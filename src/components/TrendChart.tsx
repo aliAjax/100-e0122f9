@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { aggregateByMonth, applyFilter } from '@/utils/dataAggregation'
-import { getCategoryColor } from '@/types'
+import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 export default function TrendChart() {
   const transactions = useTransactions()
@@ -10,12 +10,15 @@ export default function TrendChart() {
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
-  const monthlyData = useMemo(() => aggregateByMonth(filtered), [filtered])
+  const monthlyData = useMemo(() => aggregateByMonth(filtered, filter.selectedType), [filtered, filter.selectedType])
 
   const allMonthly = useMemo(() => {
     if (!filter.selectedCategory) return monthlyData
-    return aggregateByMonth(applyFilter(transactions, { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null }))
-  }, [transactions, filter.selectedCategory, monthlyData])
+    return aggregateByMonth(applyFilter(transactions, { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null, selectedType: filter.selectedType }), filter.selectedType)
+  }, [transactions, filter.selectedCategory, filter.selectedType, monthlyData])
+
+  const typeColor = TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType]
+  const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]
 
   const option = useMemo(
     () => ({
@@ -26,7 +29,11 @@ export default function TrendChart() {
         textStyle: { color: '#e2e8f0', fontSize: 13 },
         formatter: (params: { name: string; value: number }[]) => {
           const p = params[0]
-          return p ? `<b>${p.name}</b><br/>支出：¥${p.value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}` : ''
+          if (!p) return ''
+          const val = p.value as number
+          const displayVal = filter.selectedType === 'net' && val < 0 ? Math.abs(val) : val
+          const suffix = filter.selectedType === 'net' && val < 0 ? ' (净收入)' : ''
+          return `<b>${p.name}</b><br/>${typeLabel}：¥${displayVal.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}${suffix}`
         },
       },
       grid: { top: 20, right: 20, bottom: 30, left: 70 },
@@ -43,7 +50,12 @@ export default function TrendChart() {
         axisLabel: {
           color: '#94a3b8',
           fontSize: 11,
-          formatter: (v: number) => (v >= 10000 ? `${(v / 10000).toFixed(1)}万` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)),
+          formatter: (v: number) => {
+            const abs = Math.abs(v)
+            if (abs >= 10000) return `${(v / 10000).toFixed(1)}万`
+            if (abs >= 1000) return `${(v / 1000).toFixed(1)}k`
+            return String(v)
+          },
         },
       },
       series: [
@@ -56,19 +68,19 @@ export default function TrendChart() {
           smooth: true,
           symbol: 'circle',
           symbolSize: 6,
-          lineStyle: { color: '#10B981', width: 2.5 },
-          itemStyle: { color: '#10B981', borderWidth: 2 },
+          lineStyle: { color: typeColor, width: 2.5 },
+          itemStyle: { color: typeColor, borderWidth: 2 },
           areaStyle: {
             color: {
               type: 'linear' as const,
               x: 0, y: 0, x2: 0, y2: 1,
               colorStops: [
-                { offset: 0, color: 'rgba(16,185,129,0.3)' },
-                { offset: 1, color: 'rgba(16,185,129,0.02)' },
+                { offset: 0, color: `${typeColor}4d` },
+                { offset: 1, color: `${typeColor}05` },
               ],
             },
           },
-          emphasis: { itemStyle: { borderWidth: 3, shadowBlur: 10, shadowColor: 'rgba(16,185,129,0.4)' } },
+          emphasis: { itemStyle: { borderWidth: 3, shadowBlur: 10, shadowColor: `${typeColor}66` } },
         },
         ...(filter.selectedCategory
           ? [
@@ -96,7 +108,7 @@ export default function TrendChart() {
           : []),
       ],
     }),
-    [monthlyData, allMonthly, filter.selectedCategory],
+    [monthlyData, allMonthly, filter.selectedCategory, filter.selectedType, typeColor, typeLabel],
   )
 
   const onChartClick = (params: { name?: string }) => {
@@ -107,7 +119,7 @@ export default function TrendChart() {
 
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">
-      <h3 className="mb-4 text-sm font-medium text-slate-300">月度支出趋势</h3>
+      <h3 className="mb-4 text-sm font-medium text-slate-300">月度{typeLabel}趋势</h3>
       <ReactECharts option={option} style={{ height: 280 }} onEvents={{ click: onChartClick }} />
     </div>
   )

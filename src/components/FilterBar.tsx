@@ -1,13 +1,18 @@
 import { X, Filter } from 'lucide-react'
 import { useDashboardStore, useFilter } from '@/store/useDashboardStore'
-import { getCategoryColor } from '@/types'
+import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 export default function FilterBar() {
   const filter = useFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const clearFilter = useDashboardStore((s) => s.clearFilter)
 
-  const hasFilter = filter.selectedCategory || filter.selectedMonth || filter.selectedDate || filter.selectedMerchant
+  const hasFilter =
+    filter.selectedCategory ||
+    filter.selectedMonth ||
+    filter.selectedDate ||
+    filter.selectedMerchant ||
+    filter.selectedType !== 'expense'
   if (!hasFilter) return null
 
   return (
@@ -15,6 +20,19 @@ export default function FilterBar() {
       <Filter className="h-4 w-4 text-emerald-400" />
       <span className="text-xs text-slate-400">当前筛选：</span>
       <div className="flex flex-wrap items-center gap-2">
+        {filter.selectedType !== 'expense' && (
+          <button
+            onClick={() => setFilter({ selectedType: 'expense' })}
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors hover:opacity-80"
+            style={{
+              backgroundColor: `${TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType]}20`,
+              color: TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType],
+            }}
+          >
+            {TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]}
+            <X className="h-3 w-3" />
+          </button>
+        )}
         {filter.selectedCategory && (
           <button
             onClick={() => setFilter({ selectedCategory: null })}

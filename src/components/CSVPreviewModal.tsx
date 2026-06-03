@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, X, FileSpreadsheet } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
+import { TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 const FIELD_LABELS: Record<string, string> = {
   date: '日期',
   category: '分类',
   merchant: '商户',
   amount: '金额',
+  type: '类型',
 }
 
 export default function CSVPreviewModal() {
@@ -48,8 +50,8 @@ export default function CSVPreviewModal() {
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
           <div className="mb-5">
             <h3 className="mb-2.5 text-sm font-medium text-slate-300">识别到的列名</h3>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {(['date', 'amount', 'category', 'merchant'] as const).map((field) => {
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {(['date', 'amount', 'type', 'category', 'merchant'] as const).map((field) => {
                 const colName = previewResult.mappedColumns[field]
                 return (
                   <div
@@ -139,6 +141,7 @@ export default function CSVPreviewModal() {
                     <tr className="border-b border-slate-700/40 bg-slate-800/50">
                       <th className="px-3 py-2 font-medium text-slate-400">#</th>
                       <th className="px-3 py-2 font-medium text-slate-400">日期</th>
+                      <th className="px-3 py-2 font-medium text-slate-400">类型</th>
                       <th className="px-3 py-2 font-medium text-slate-400">分类</th>
                       <th className="px-3 py-2 font-medium text-slate-400">商户</th>
                       <th className="px-3 py-2 font-medium text-slate-400">金额</th>
@@ -149,9 +152,25 @@ export default function CSVPreviewModal() {
                       <tr key={tx.id} className="border-b border-slate-700/20 last:border-0">
                         <td className="px-3 py-2 text-slate-500">{i + 1}</td>
                         <td className="px-3 py-2 text-slate-300">{tx.date}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px]"
+                            style={{
+                              backgroundColor: `${TRANSACTION_TYPE_COLORS[tx.type]}20`,
+                              color: TRANSACTION_TYPE_COLORS[tx.type],
+                            }}
+                          >
+                            {TRANSACTION_TYPE_LABELS[tx.type]}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-slate-300">{tx.category}</td>
                         <td className="px-3 py-2 text-slate-300">{tx.merchant || '—'}</td>
-                        <td className="px-3 py-2 text-emerald-400">¥{tx.amount.toFixed(2)}</td>
+                        <td
+                          className="px-3 py-2 font-mono"
+                          style={{ color: TRANSACTION_TYPE_COLORS[tx.type] }}
+                        >
+                          {tx.type === 'income' || tx.type === 'refund' ? '+' : '-'}¥{tx.amount.toFixed(2)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

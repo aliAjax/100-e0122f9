@@ -2,9 +2,14 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
-import { getCategoryColor } from '@/types'
+import { getCategoryColor, TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
+import type { TransactionType } from '@/types'
 
 const PAGE_SIZE = 20
+
+function getTypeColor(type: TransactionType): string {
+  return TRANSACTION_TYPE_COLORS[type]
+}
 
 export default function TransactionTable() {
   const transactions = useTransactions()
@@ -39,6 +44,7 @@ export default function TransactionTable() {
           <thead>
             <tr className="border-b border-slate-700/30 text-left text-xs text-slate-500">
               <th className="px-5 py-3 font-medium">日期</th>
+              <th className="px-5 py-3 font-medium">类型</th>
               <th className="px-5 py-3 font-medium">分类</th>
               <th className="px-5 py-3 font-medium">商户</th>
               <th className="px-5 py-3 text-right font-medium">金额</th>
@@ -48,6 +54,14 @@ export default function TransactionTable() {
             {pageData.map((t) => (
               <tr key={t.id} className="border-b border-slate-700/20 transition-colors hover:bg-slate-700/20">
                 <td className="px-5 py-3 text-slate-300">{t.date}</td>
+                <td className="px-5 py-3">
+                  <span
+                    className="inline-flex items-center rounded-md px-2 py-0.5 text-xs"
+                    style={{ backgroundColor: `${getTypeColor(t.type)}20`, color: getTypeColor(t.type) }}
+                  >
+                    {TRANSACTION_TYPE_LABELS[t.type]}
+                  </span>
+                </td>
                 <td className="px-5 py-3">
                   <button
                     onClick={() => handleCategoryClick(t.category)}
@@ -66,12 +80,14 @@ export default function TransactionTable() {
                     {t.merchant || '-'}
                   </button>
                 </td>
-                <td className="px-5 py-3 text-right font-mono text-slate-200">¥{formatCurrency(t.amount)}</td>
+                <td className="px-5 py-3 text-right font-mono" style={{ color: getTypeColor(t.type) }}>
+                  {t.type === 'income' || t.type === 'refund' ? '+' : '-'}¥{formatCurrency(t.amount)}
+                </td>
               </tr>
             ))}
             {pageData.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-12 text-center text-slate-500">
+                <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
                   暂无数据
                 </td>
               </tr>

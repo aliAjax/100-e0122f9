@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Transaction, FilterState, Bill } from '@/types'
+import type { Transaction, FilterState, Bill, TransactionType } from '@/types'
 import type { CSVPreviewResult } from '@/utils/csvParser'
 import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
@@ -18,13 +18,27 @@ function createEmptyFilter(): FilterState {
     selectedMonth: null,
     selectedDate: null,
     selectedMerchant: null,
+    selectedType: 'expense',
   }
 }
 
 function loadBills(): Bill[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_BILLS)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const bills = JSON.parse(raw) as Bill[]
+      return bills.map((bill) => ({
+        ...bill,
+        filter: {
+          ...createEmptyFilter(),
+          ...bill.filter,
+        },
+        transactions: bill.transactions.map((t) => ({
+          ...t,
+          type: ((t as { type?: string }).type || 'expense') as TransactionType,
+        })),
+      }))
+    }
   } catch {
     // fall through
   }
@@ -33,10 +47,14 @@ function loadBills(): Bill[] {
     if (legacyRaw) {
       const transactions = JSON.parse(legacyRaw) as Transaction[]
       if (transactions.length > 0) {
+        const migratedTransactions = transactions.map((t) => ({
+          ...t,
+          type: ((t as { type?: string }).type || 'expense') as TransactionType,
+        }))
         const legacyBill: Bill = {
           id: generateId(),
           name: '默认账单',
-          transactions,
+          transactions: migratedTransactions,
           filter: createEmptyFilter(),
           createdAt: Date.now(),
         }

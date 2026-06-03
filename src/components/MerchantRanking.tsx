@@ -16,8 +16,8 @@ export default function MerchantRanking() {
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const unfiltered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: filter.selectedCategory, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null }),
-    [transactions, filter.selectedCategory, filter.selectedMonth, filter.selectedDate],
+    () => applyFilter(transactions, { selectedCategory: filter.selectedCategory, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType }),
+    [transactions, filter.selectedCategory, filter.selectedMonth, filter.selectedDate, filter.selectedType],
   )
 
   const topMerchants = useMemo<MerchantStat[]>(() => {
@@ -25,7 +25,10 @@ export default function MerchantRanking() {
     for (const t of unfiltered) {
       if (!t.merchant) continue
       const existing = map.get(t.merchant) ?? { amount: 0, count: 0 }
-      existing.amount += t.amount
+      const typeAmount = filter.selectedType === 'net'
+        ? (t.type === 'income' || t.type === 'refund' ? -t.amount : t.amount)
+        : t.amount
+      existing.amount += typeAmount
       existing.count += 1
       map.set(t.merchant, existing)
     }
@@ -36,11 +39,11 @@ export default function MerchantRanking() {
         count,
         avg: Math.round((amount / count) * 100) / 100,
       }))
-      .sort((a, b) => b.amount - a.amount)
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
       .slice(0, 10)
-  }, [unfiltered])
+  }, [unfiltered, filter.selectedType])
 
-  const maxAmount = useMemo(() => Math.max(...topMerchants.map((m) => m.amount), 0), [topMerchants])
+  const maxAmount = useMemo(() => Math.max(...topMerchants.map((m) => Math.abs(m.amount)), 0), [topMerchants])
 
   if (topMerchants.length === 0) return null
 
@@ -61,8 +64,9 @@ export default function MerchantRanking() {
       <div className="px-5 py-3">
         <div className="flex flex-col gap-1">
           {topMerchants.map((m) => {
-            const pct = maxAmount > 0 ? (m.amount / maxAmount) * 100 : 0
+            const pct = maxAmount > 0 ? (Math.abs(m.amount) / maxAmount) * 100 : 0
             const isActive = filter.selectedMerchant === m.merchant
+            const isNetIncome = filter.selectedType === 'net' && m.amount < 0
             return (
               <button
                 key={m.merchant}
@@ -85,10 +89,11 @@ export default function MerchantRanking() {
                 <div className="flex shrink-0 items-center gap-4">
                   <div className="text-right">
                     <p className={`font-mono text-xs font-medium ${isActive ? 'text-violet-300' : 'text-slate-200'}`}>
-                      ¥{formatCurrency(m.amount)}
+                      {isNetIncome ? '+' : ''}¥{formatCurrency(Math.abs(m.amount))}
+                      {isNetIncome ? ' (净收入)' : ''}
                     </p>
                     <p className="text-[10px] text-slate-500">
-                      {m.count}笔 · 均¥{formatCurrency(m.avg)}
+                      {m.count}笔 · 均¥{formatCurrency(Math.abs(m.avg))}
                     </p>
                   </div>
                 </div>

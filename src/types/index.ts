@@ -1,9 +1,33 @@
+export type TransactionType = 'expense' | 'income' | 'refund'
+
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  expense: '支出',
+  income: '收入',
+  refund: '退款',
+}
+
+export const TRANSACTION_TYPE_COLORS: Record<TransactionType, string> = {
+  expense: '#10B981',
+  income: '#3B82F6',
+  refund: '#F59E0B',
+}
+
 export interface Transaction {
   id: string
   date: string
   category: string
   merchant: string
   amount: number
+  type: TransactionType
+}
+
+export type TransactionTypeFilter = TransactionType | 'net'
+
+export const TRANSACTION_TYPE_FILTER_LABELS: Record<TransactionTypeFilter, string> = {
+  expense: '支出',
+  income: '收入',
+  refund: '退款',
+  net: '净支出',
 }
 
 export interface FilterState {
@@ -11,6 +35,7 @@ export interface FilterState {
   selectedMonth: string | null
   selectedDate: string | null
   selectedMerchant: string | null
+  selectedType: TransactionTypeFilter
 }
 
 export interface Bill {

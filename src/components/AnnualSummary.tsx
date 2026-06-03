@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { Coins, Calendar, Tag, Store, TrendingUp } from 'lucide-react'
-import { useTransactions } from '@/store/useDashboardStore'
-import { aggregateByMonth, aggregateByCategory, formatCurrency } from '@/utils/dataAggregation'
+import { useTransactions, useFilter } from '@/store/useDashboardStore'
+import { aggregateByMonth, aggregateByCategory, formatCurrency, applyFilter } from '@/utils/dataAggregation'
+import { TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
 
 function SummaryItem({ icon: Icon, label, value, sub, accent }: { icon: React.ElementType; label: string; value: string; sub?: string; accent: string }) {
   return (
@@ -20,9 +21,13 @@ function SummaryItem({ icon: Icon, label, value, sub, accent }: { icon: React.El
 
 export default function AnnualSummary() {
   const transactions = useTransactions()
+  const filter = useFilter()
+
+  const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
+  const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]
 
   const stats = useMemo(() => {
-    if (transactions.length === 0) {
+    if (filtered.length === 0) {
       return {
         totalAmount: 0,
         topMonth: '-',
@@ -35,16 +40,22 @@ export default function AnnualSummary() {
       }
     }
 
-    const totalAmount = transactions.reduce((s, t) => s + t.amount, 0)
+    const totalAmount = filtered.reduce((s, t) => {
+      if (filter.selectedType === 'net') {
+        if (t.type === 'income' || t.type === 'refund') return s - t.amount
+        return s + t.amount
+      }
+      return s + t.amount
+    }, 0)
 
-    const monthly = aggregateByMonth(transactions)
-    const topMonthItem = monthly.reduce((a, b) => (b.amount > a.amount ? b : a), monthly[0])
+    const monthly = aggregateByMonth(filtered, filter.selectedType)
+    const topMonthItem = monthly.reduce((a, b) => (Math.abs(b.amount) > Math.abs(a.amount) ? b : a), monthly[0])
 
-    const category = aggregateByCategory(transactions)
+    const category = aggregateByCategory(filtered, filter.selectedType)
     const topCategoryItem = category[0]
 
     const merchantMap = new Map<string, number>()
-    for (const t of transactions) {
+    for (const t of filtered) {
       merchantMap.set(t.merchant, (merchantMap.get(t.merchant) ?? 0) + 1)
     }
     let topMerchantName = '-'
@@ -56,7 +67,7 @@ export default function AnnualSummary() {
       }
     }
 
-    const dates = transactions.map((t) => t.date).sort()
+    const dates = filtered.map((t) => t.date).sort()
     const firstDate = new Date(dates[0])
     const lastDate = new Date(dates[dates.length - 1])
     const daySpan = Math.max(1, Math.ceil((lastDate.getTime() - firstDate.getTime()) / 86400000) + 1)
@@ -72,7 +83,7 @@ export default function AnnualSummary() {
       topMerchantCount,
       dailyAvg,
     }
-  }, [transactions])
+  }, [filtered, filter.selectedType])
 
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">
@@ -80,22 +91,22 @@ export default function AnnualSummary() {
       <div className="grid grid-cols-5 gap-4">
         <SummaryItem
           icon={Coins}
-          label="年度总支出"
-          value={`¥${formatCurrency(stats.totalAmount)}`}
+          label={`年度总${typeLabel}`}
+          value={`¥${formatCurrency(Math.abs(stats.totalAmount))}${filter.selectedType === 'net' && stats.totalAmount < 0 ? ' (净收入)' : ''}`}
           accent="bg-emerald-500/15 text-emerald-400"
         />
         <SummaryItem
           icon={Calendar}
-          label="最高消费月份"
+          label={`最高${typeLabel}月份`}
           value={stats.topMonth}
-          sub={stats.topMonthAmount > 0 ? `¥${formatCurrency(stats.topMonthAmount)}` : undefined}
+          sub={Math.abs(stats.topMonthAmount) > 0 ? `¥${formatCurrency(Math.abs(stats.topMonthAmount))}` : undefined}
           accent="bg-blue-500/15 text-blue-400"
         />
         <SummaryItem
           icon={Tag}
-          label="最高消费分类"
+          label={`最高${typeLabel}分类`}
           value={stats.topCategory}
-          sub={stats.topCategoryAmount > 0 ? `¥${formatCurrency(stats.topCategoryAmount)}` : undefined}
+          sub={Math.abs(stats.topCategoryAmount) > 0 ? `¥${formatCurrency(Math.abs(stats.topCategoryAmount))}` : undefined}
           accent="bg-amber-500/15 text-amber-400"
         />
         <SummaryItem
@@ -107,8 +118,8 @@ export default function AnnualSummary() {
         />
         <SummaryItem
           icon={TrendingUp}
-          label="日均支出"
-          value={`¥${formatCurrency(stats.dailyAvg)}`}
+          label={`日均${typeLabel}`}
+          value={`¥${formatCurrency(Math.abs(stats.dailyAvg))}`}
           accent="bg-cyan-500/15 text-cyan-400"
         />
       </div>

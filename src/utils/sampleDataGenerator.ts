@@ -1,10 +1,19 @@
-import type { Transaction } from '@/types'
+import type { Transaction, TransactionType } from '@/types'
 
 interface CategoryConfig {
   category: string
   merchants: string[]
   amountRange: [number, number]
   monthlyFrequency: [number, number]
+  defaultType?: TransactionType
+}
+
+interface IncomeConfig {
+  category: string
+  merchants: string[]
+  amountRange: [number, number]
+  monthlyFrequency: [number, number]
+  type: 'income'
 }
 
 const CATEGORY_CONFIGS: CategoryConfig[] = [
@@ -64,6 +73,46 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   },
 ]
 
+const INCOME_CONFIGS: IncomeConfig[] = [
+  {
+    category: '工资',
+    merchants: ['工资', '薪水', '月薪', '薪资', '公司转账'],
+    amountRange: [8000, 25000],
+    monthlyFrequency: [1, 1],
+    type: 'income',
+  },
+  {
+    category: '奖金',
+    merchants: ['年终奖', '季度奖', '绩效奖金', '项目奖金', '红包'],
+    amountRange: [1000, 20000],
+    monthlyFrequency: [0, 1],
+    type: 'income',
+  },
+  {
+    category: '投资收益',
+    merchants: ['股票分红', '基金收益', '理财利息', '股息', '余额宝'],
+    amountRange: [50, 5000],
+    monthlyFrequency: [1, 3],
+    type: 'income',
+  },
+  {
+    category: '兼职收入',
+    merchants: ['兼职', '副业', '接单', '稿费', '咨询费'],
+    amountRange: [200, 8000],
+    monthlyFrequency: [0, 2],
+    type: 'income',
+  },
+  {
+    category: '其他收入',
+    merchants: ['退款', '报销', '转账', '红包', '礼金'],
+    amountRange: [50, 3000],
+    monthlyFrequency: [0, 2],
+    type: 'income',
+  },
+]
+
+const REFUND_MERCHANTS = ['淘宝退款', '京东退款', '拼多多退款', '美团退款', '饿了么退款', '退押金', '退货退款']
+
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
@@ -95,6 +144,7 @@ interface SpecialTransactionTemplate {
   category: string
   merchant: string
   amount: number
+  type?: TransactionType
 }
 
 export function generateSampleData(): Transaction[] {
@@ -157,28 +207,72 @@ export function generateSampleData(): Transaction[] {
         const baseAmount = randomFloat(config.amountRange[0], config.amountRange[1])
         const amount = Math.round(baseAmount * amountVariation * monthWeight * 100) / 100
 
+        const type: TransactionType = config.defaultType || 'expense'
         transactions.push({
           id: `sample_${Date.now()}_${idCounter++}`,
           date,
           category: config.category,
           merchant: randomPick(config.merchants),
           amount,
+          type,
         })
       }
+    }
+
+    for (const config of INCOME_CONFIGS) {
+      const baseFrequency = randomInt(config.monthlyFrequency[0], config.monthlyFrequency[1])
+      const frequency = Math.max(0, Math.round(baseFrequency * monthWeight))
+
+      for (let i = 0; i < frequency; i++) {
+        const day = randomInt(1, maxDay)
+        const date = formatDate(currentYear, currentMonth, day)
+        const seed = idCounter + currentYear * 10000 + currentMonth * 100 + day
+        const amountVariation = 0.7 + seededRandom(seed) * 0.6
+        const baseAmount = randomFloat(config.amountRange[0], config.amountRange[1])
+        const amount = Math.round(baseAmount * amountVariation * 100) / 100
+
+        transactions.push({
+          id: `sample_${Date.now()}_${idCounter++}`,
+          date,
+          category: config.category,
+          merchant: randomPick(config.merchants),
+          amount,
+          type: config.type,
+        })
+      }
+    }
+
+    const refundCount = randomInt(0, 2)
+    for (let i = 0; i < refundCount; i++) {
+      const day = randomInt(1, maxDay)
+      const date = formatDate(currentYear, currentMonth, day)
+      const amount = Math.round(randomFloat(50, 500) * 100) / 100
+
+      transactions.push({
+        id: `sample_${Date.now()}_${idCounter++}`,
+        date,
+        category: '其他',
+        merchant: randomPick(REFUND_MERCHANTS),
+        amount,
+        type: 'refund',
+      })
     }
   }
 
   const specialTransactions: SpecialTransactionTemplate[] = [
-    { month: 1, day: 1, category: '餐饮', merchant: '海底捞', amount: 458.00 },
-    { month: 2, day: 14, category: '购物', merchant: '京东', amount: 1314.00 },
-    { month: 4, day: 5, category: '交通', merchant: '12306', amount: 680.00 },
-    { month: 5, day: 1, category: '娱乐', merchant: '演唱会', amount: 880.00 },
-    { month: 6, day: 18, category: '购物', merchant: '淘宝', amount: 2599.00 },
-    { month: 9, day: 10, category: '教育', merchant: '学而思', amount: 3280.00 },
-    { month: 10, day: 1, category: '交通', merchant: '飞机票', amount: 2180.00 },
-    { month: 11, day: 11, category: '购物', merchant: '天猫', amount: 3999.00 },
-    { month: 12, day: 12, category: '购物', merchant: '拼多多', amount: 1899.00 },
-    { month: 12, day: 25, category: '餐饮', merchant: '必胜客', amount: 268.00 },
+    { month: 1, day: 1, category: '餐饮', merchant: '海底捞', amount: 458.00, type: 'expense' },
+    { month: 2, day: 14, category: '购物', merchant: '京东', amount: 1314.00, type: 'expense' },
+    { month: 4, day: 5, category: '交通', merchant: '12306', amount: 680.00, type: 'expense' },
+    { month: 5, day: 1, category: '娱乐', merchant: '演唱会', amount: 880.00, type: 'expense' },
+    { month: 6, day: 18, category: '购物', merchant: '淘宝', amount: 2599.00, type: 'expense' },
+    { month: 7, day: 15, category: '工资', merchant: '工资', amount: 15000.00, type: 'income' },
+    { month: 9, day: 10, category: '教育', merchant: '学而思', amount: 3280.00, type: 'expense' },
+    { month: 10, day: 1, category: '交通', merchant: '飞机票', amount: 2180.00, type: 'expense' },
+    { month: 11, day: 11, category: '购物', merchant: '天猫', amount: 3999.00, type: 'expense' },
+    { month: 11, day: 20, category: '奖金', merchant: '年终奖', amount: 20000.00, type: 'income' },
+    { month: 12, day: 12, category: '购物', merchant: '拼多多', amount: 1899.00, type: 'expense' },
+    { month: 12, day: 25, category: '餐饮', merchant: '必胜客', amount: 268.00, type: 'expense' },
+    { month: 12, day: 28, category: '其他', merchant: '淘宝退款', amount: 299.00, type: 'refund' },
   ]
 
   for (const tx of specialTransactions) {
@@ -192,6 +286,7 @@ export function generateSampleData(): Transaction[] {
       category: tx.category,
       merchant: tx.merchant,
       amount: tx.amount,
+      type: tx.type || 'expense',
     })
   }
 
@@ -205,6 +300,7 @@ export function generateSampleData(): Transaction[] {
         category: '居住',
         merchant: '房租',
         amount: 4500.00,
+        type: 'expense',
       })
     }
     if (isDateInRange(y, m, 10) && !isFutureDate(m, 10)) {
@@ -214,6 +310,17 @@ export function generateSampleData(): Transaction[] {
         category: '通讯',
         merchant: '中国移动',
         amount: 128.00,
+        type: 'expense',
+      })
+    }
+    if (isDateInRange(y, m, 15) && !isFutureDate(m, 15)) {
+      transactions.push({
+        id: `sample_${Date.now()}_${idCounter++}`,
+        date: formatDate(y, m, 15),
+        category: '工资',
+        merchant: '工资',
+        amount: 15000.00,
+        type: 'income',
       })
     }
   }

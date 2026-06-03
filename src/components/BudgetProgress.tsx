@@ -41,11 +41,11 @@ export default function BudgetProgress() {
   const effectiveMonth = filter.selectedMonth ?? latestMonth
 
   const filtered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: effectiveMonth, selectedDate: null, selectedMerchant: null }),
+    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: effectiveMonth, selectedDate: null, selectedMerchant: null, selectedType: 'expense' }),
     [transactions, effectiveMonth],
   )
 
-  const categoryData = useMemo(() => aggregateByCategory(filtered), [filtered])
+  const categoryData = useMemo(() => aggregateByCategory(filtered, 'expense'), [filtered])
 
   const categoryAmountMap = useMemo(() => {
     const map = new Map<string, number>()

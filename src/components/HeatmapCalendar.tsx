@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { aggregateByDay, applyFilter, formatCurrency } from '@/utils/dataAggregation'
+import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 const CELL_SIZE = 14
 const CELL_GAP = 3
@@ -27,13 +28,21 @@ function getMonday(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), diff)
 }
 
-function getHeatColor(value: number, max: number): string {
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : { r: 16, g: 185, b: 129 }
+}
+
+function getHeatColor(value: number, max: number, baseColor: string): string {
   if (value === 0) return '#1e293b'
-  const ratio = Math.min(value / max, 1)
-  if (ratio < 0.25) return '#064e3b'
-  if (ratio < 0.5) return '#065f46'
-  if (ratio < 0.75) return '#059669'
-  return '#10B981'
+  const ratio = Math.min(Math.abs(value) / max, 1)
+  const { r, g, b } = hexToRgb(baseColor)
+  if (ratio < 0.25) return `rgb(${Math.floor(r * 0.3)}, ${Math.floor(g * 0.3)}, ${Math.floor(b * 0.3)})`
+  if (ratio < 0.5) return `rgb(${Math.floor(r * 0.5)}, ${Math.floor(g * 0.5)}, ${Math.floor(b * 0.5)})`
+  if (ratio < 0.75) return `rgb(${Math.floor(r * 0.75)}, ${Math.floor(g * 0.75)}, ${Math.floor(b * 0.75)})`
+  return baseColor
 }
 
 export default function HeatmapCalendar() {
@@ -44,7 +53,7 @@ export default function HeatmapCalendar() {
   const [tooltip, setTooltip] = useState<{ date: string; amount: number; x: number; y: number } | null>(null)
 
   const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
-  const dailyData = useMemo(() => aggregateByDay(filtered), [filtered])
+  const dailyData = useMemo(() => aggregateByDay(filtered, filter.selectedType), [filtered, filter.selectedType])
   const dailyMap = useMemo(() => {
     const m = new Map<string, number>()
     for (const d of dailyData) m.set(d.date, d.amount)
@@ -58,13 +67,16 @@ export default function HeatmapCalendar() {
 
   const year = years.length > 0 ? years[years.length - 1] : new Date().getFullYear()
 
+  const baseColor = TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType]
+  const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]
+
   const { cells, maxAmount, svgWidth, svgHeight, monthPositions } = useMemo(() => {
     const days = getDaysInYear(year)
     const cellsArr: { date: string; col: number; row: number; amount: number; isFiltered: boolean }[] = []
 
     let maxVal = 0
     for (const d of dailyData) {
-      if (d.amount > maxVal) maxVal = d.amount
+      if (Math.abs(d.amount) > maxVal) maxVal = Math.abs(d.amount)
     }
 
     const firstMonday = getMonday(days[0])
@@ -114,11 +126,11 @@ export default function HeatmapCalendar() {
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-slate-300">每日消费热力图</h3>
+        <h3 className="text-sm font-medium text-slate-300">每日{typeLabel}热力图</h3>
         <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
           <span>少</span>
           {[0, 0.25, 0.5, 0.75, 1].map((r) => (
-            <div key={r} className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: getHeatColor(r * maxAmount, maxAmount) }} />
+            <div key={r} className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: getHeatColor(r * maxAmount, maxAmount, baseColor) }} />
           ))}
           <span>多</span>
         </div>
@@ -143,7 +155,7 @@ export default function HeatmapCalendar() {
               width={CELL_SIZE}
               height={CELL_SIZE}
               rx={3}
-              fill={getHeatColor(c.amount, maxAmount)}
+              fill={getHeatColor(c.amount, maxAmount, baseColor)}
               opacity={c.isFiltered ? 1 : 0.3}
               className="cursor-pointer transition-opacity hover:opacity-80"
               onClick={() => handleClick(c.date)}
@@ -157,7 +169,10 @@ export default function HeatmapCalendar() {
             style={{ left: tooltip.x + 10, top: tooltip.y - 10 }}
           >
             <p className="text-slate-300">{tooltip.date}</p>
-            <p className="font-mono text-emerald-400">¥{formatCurrency(tooltip.amount)}</p>
+            <p className="font-mono" style={{ color: baseColor }}>
+              ¥{formatCurrency(Math.abs(tooltip.amount))}
+              {filter.selectedType === 'net' && tooltip.amount < 0 ? ' (净收入)' : ''}
+            </p>
           </div>
         )}
       </div>

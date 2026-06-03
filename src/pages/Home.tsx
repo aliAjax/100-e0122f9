@@ -18,6 +18,7 @@ import TransactionTable from '@/components/TransactionTable'
 import MerchantRanking from '@/components/MerchantRanking'
 import AnnualSummary from '@/components/AnnualSummary'
 import FilterBar from '@/components/FilterBar'
+import TransactionTypeToggle from '@/components/TransactionTypeToggle'
 
 export default function Home() {
   const dataLoaded = useDataLoaded()
@@ -148,6 +149,10 @@ export default function Home() {
         ) : (
           <div className="flex flex-col gap-6">
             <FilterBar />
+            <div className="flex items-center justify-between">
+              <div />
+              <TransactionTypeToggle />
+            </div>
             <StatsCards />
             <AnnualSummary />
             <div className="grid grid-cols-5 gap-6">

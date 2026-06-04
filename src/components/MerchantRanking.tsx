@@ -16,7 +16,7 @@ export default function MerchantRanking() {
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const unfiltered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: filter.selectedCategory, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType }),
+    () => applyFilter(transactions, { selectedCategory: filter.selectedCategory, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }),
     [transactions, filter.selectedCategory, filter.selectedMonth, filter.selectedDate, filter.selectedType],
   )
 

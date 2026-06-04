@@ -10,7 +10,7 @@ export default function CategoryPie() {
   const setFilter = useDashboardStore((s) => s.setFilter)
 
   const unfiltered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType }),
+    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }),
     [transactions, filter.selectedMonth, filter.selectedDate, filter.selectedType],
   )
   const categoryData = useMemo(() => aggregateByCategory(unfiltered, filter.selectedType), [unfiltered, filter.selectedType])

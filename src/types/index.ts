@@ -36,6 +36,9 @@ export interface FilterState {
   selectedDate: string | null
   selectedMerchant: string | null
   selectedType: TransactionTypeFilter
+  searchText: string
+  amountMin: number | null
+  amountMax: number | null
 }
 
 export interface Bill {

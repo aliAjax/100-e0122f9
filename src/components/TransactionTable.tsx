@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
@@ -9,6 +9,12 @@ const PAGE_SIZE = 20
 
 function getTypeColor(type: TransactionType): string {
   return TRANSACTION_TYPE_COLORS[type]
+}
+
+function parseAmountInput(value: string): number | null {
+  if (value === '') return null
+  const n = Number(value)
+  return isNaN(n) || n < 0 ? null : n
 }
 
 export default function TransactionTable() {
@@ -21,7 +27,47 @@ export default function TransactionTable() {
 
   const [page, setPage] = useState(0)
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
-  const pageData = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const safePage = Math.min(page, Math.max(0, totalPages - 1))
+  const pageData = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+
+  const [localSearch, setLocalSearch] = useState(filter.searchText)
+  const [localMin, setLocalMin] = useState(filter.amountMin !== null ? String(filter.amountMin) : '')
+  const [localMax, setLocalMax] = useState(filter.amountMax !== null ? String(filter.amountMax) : '')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    setPage(0)
+  }, [filter.selectedCategory, filter.selectedMonth, filter.selectedDate, filter.selectedMerchant, filter.selectedType, filter.searchText, filter.amountMin, filter.amountMax])
+
+  useEffect(() => {
+    setLocalSearch(filter.searchText)
+    setLocalMin(filter.amountMin !== null ? String(filter.amountMin) : '')
+    setLocalMax(filter.amountMax !== null ? String(filter.amountMax) : '')
+  }, [filter.searchText, filter.amountMin, filter.amountMax])
+
+  const handleSearchChange = (value: string) => {
+    setLocalSearch(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setFilter({ searchText: value })
+    }, 300)
+  }
+
+  const handleMinChange = (value: string) => {
+    setLocalMin(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setFilter({ amountMin: parseAmountInput(value) })
+    }, 300)
+  }
+
+  const handleMaxChange = (value: string) => {
+    setLocalMax(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setFilter({ amountMax: parseAmountInput(value) })
+    }, 300)
+  }
 
   const handleCategoryClick = (cat: string) => {
     const next = filter.selectedCategory === cat ? null : cat
@@ -39,6 +85,42 @@ export default function TransactionTable() {
         <h3 className="text-sm font-medium text-slate-300">交易明细</h3>
         <span className="text-xs text-slate-500">共 {filtered.length} 条</span>
       </div>
+
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-700/30 px-5 py-3">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            value={localSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="搜索商户、分类或日期…"
+            className="w-full rounded-lg border border-slate-700/50 bg-slate-900/50 py-1.5 pl-8 pr-3 text-xs text-slate-200 placeholder:text-slate-600 transition-colors focus:border-cyan-500/50 focus:outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <span>金额</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={localMin}
+            onChange={(e) => handleMinChange(e.target.value)}
+            placeholder="最低"
+            className="w-20 rounded-lg border border-slate-700/50 bg-slate-900/50 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 transition-colors focus:border-cyan-500/50 focus:outline-none"
+          />
+          <span className="text-slate-600">~</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={localMax}
+            onChange={(e) => handleMaxChange(e.target.value)}
+            placeholder="最高"
+            className="w-20 rounded-lg border border-slate-700/50 bg-slate-900/50 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 transition-colors focus:border-cyan-500/50 focus:outline-none"
+          />
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -98,19 +180,19 @@ export default function TransactionTable() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-slate-700/50 px-5 py-3">
           <span className="text-xs text-slate-500">
-            第 {page + 1} / {totalPages} 页
+            第 {safePage + 1} / {totalPages} 页
           </span>
           <div className="flex gap-1">
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
+              disabled={safePage === 0}
               className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-700/50 disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
+              disabled={safePage >= totalPages - 1}
               className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-700/50 disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />

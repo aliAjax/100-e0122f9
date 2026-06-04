@@ -41,7 +41,7 @@ export default function BudgetProgress() {
   const effectiveMonth = filter.selectedMonth ?? latestMonth
 
   const filtered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: effectiveMonth, selectedDate: null, selectedMerchant: null, selectedType: 'expense' }),
+    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: effectiveMonth, selectedDate: null, selectedMerchant: null, selectedType: 'expense', searchText: '', amountMin: null, amountMax: null }),
     [transactions, effectiveMonth],
   )
 

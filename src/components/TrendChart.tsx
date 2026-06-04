@@ -14,7 +14,7 @@ export default function TrendChart() {
 
   const allMonthly = useMemo(() => {
     if (!filter.selectedCategory) return monthlyData
-    return aggregateByMonth(applyFilter(transactions, { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null, selectedType: filter.selectedType }), filter.selectedType)
+    return aggregateByMonth(applyFilter(transactions, { selectedCategory: null, selectedMonth: null, selectedDate: null, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }), filter.selectedType)
   }, [transactions, filter.selectedCategory, filter.selectedType, monthlyData])
 
   const typeColor = TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType]

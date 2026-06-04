@@ -12,7 +12,10 @@ export default function FilterBar() {
     filter.selectedMonth ||
     filter.selectedDate ||
     filter.selectedMerchant ||
-    filter.selectedType !== 'expense'
+    filter.selectedType !== 'expense' ||
+    filter.searchText ||
+    filter.amountMin !== null ||
+    filter.amountMax !== null
   if (!hasFilter) return null
 
   return (
@@ -67,6 +70,24 @@ export default function FilterBar() {
             className="inline-flex items-center gap-1.5 rounded-md bg-violet-500/15 px-2.5 py-1 text-xs text-violet-400 transition-colors hover:opacity-80"
           >
             {filter.selectedMerchant}
+            <X className="h-3 w-3" />
+          </button>
+        )}
+        {filter.searchText && (
+          <button
+            onClick={() => setFilter({ searchText: '' })}
+            className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-2.5 py-1 text-xs text-cyan-400 transition-colors hover:opacity-80"
+          >
+            搜索：{filter.searchText}
+            <X className="h-3 w-3" />
+          </button>
+        )}
+        {(filter.amountMin !== null || filter.amountMax !== null) && (
+          <button
+            onClick={() => setFilter({ amountMin: null, amountMax: null })}
+            className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-2.5 py-1 text-xs text-amber-400 transition-colors hover:opacity-80"
+          >
+            金额：¥{filter.amountMin ?? 0} ~ ¥{filter.amountMax ?? '∞'}
             <X className="h-3 w-3" />
           </button>
         )}

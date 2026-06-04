@@ -20,6 +20,9 @@ function createEmptyFilter(): FilterState {
     selectedDate: null,
     selectedMerchant: null,
     selectedType: 'expense',
+    searchText: '',
+    amountMin: null,
+    amountMax: null,
   }
 }
 

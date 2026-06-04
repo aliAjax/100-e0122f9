@@ -59,7 +59,7 @@ export function aggregateByDay(transactions: Transaction[], typeFilter: Transact
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function applyFilter(transactions: Transaction[], filter: { selectedCategory: string | null; selectedMonth: string | null; selectedDate: string | null; selectedMerchant: string | null; selectedType: TransactionTypeFilter }): Transaction[] {
+export function applyFilter(transactions: Transaction[], filter: { selectedCategory: string | null; selectedMonth: string | null; selectedDate: string | null; selectedMerchant: string | null; selectedType: TransactionTypeFilter; searchText: string; amountMin: number | null; amountMax: number | null }): Transaction[] {
   let result = transactions
   result = filterByType(result, filter.selectedType)
   if (filter.selectedCategory) {
@@ -73,6 +73,20 @@ export function applyFilter(transactions: Transaction[], filter: { selectedCateg
   }
   if (filter.selectedMerchant) {
     result = result.filter((t) => t.merchant === filter.selectedMerchant)
+  }
+  if (filter.searchText) {
+    const keyword = filter.searchText.toLowerCase()
+    result = result.filter((t) =>
+      t.merchant.toLowerCase().includes(keyword) ||
+      t.category.toLowerCase().includes(keyword) ||
+      t.date.includes(keyword)
+    )
+  }
+  if (filter.amountMin !== null) {
+    result = result.filter((t) => t.amount >= filter.amountMin!)
+  }
+  if (filter.amountMax !== null) {
+    result = result.filter((t) => t.amount <= filter.amountMax!)
   }
   return result
 }

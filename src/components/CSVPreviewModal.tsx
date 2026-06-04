@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, X, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,13 @@ export default function CSVPreviewModal() {
   const [userMappings, setUserMappings] = useState<MappedColumns>(() =>
     previewResult ? { ...previewResult.mappedColumns } : { date: null, category: null, merchant: null, amount: null, type: null }
   )
+
+  useEffect(() => {
+    if (previewResult) {
+      setUserMappings({ ...previewResult.mappedColumns })
+      setBillName(pendingBillName || `账单 ${bills.length + 1}`)
+    }
+  }, [previewResult, pendingBillName, bills.length])
 
   const parsedResult = useMemo(() => {
     if (!previewResult) {

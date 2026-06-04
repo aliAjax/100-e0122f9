@@ -90,13 +90,7 @@ export default function Home() {
                     setPendingBillName(`账单 ${bills.length + 1}`)
                     try {
                       const result = await previewCSV(file)
-                      if (result.validCount === 0) {
-                        const firstReason = result.invalidReasons[0] ?? '未解析到有效交易记录'
-                        setReimportError(firstReason)
-                        setPendingBillName(null)
-                      } else {
-                        setPreviewResult(result)
-                      }
+                      setPreviewResult(result)
                     } catch (e) {
                       setReimportError((e as Error).message)
                       setPendingBillName(null)

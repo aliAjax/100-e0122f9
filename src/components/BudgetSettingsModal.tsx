@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { X, Plus, Trash2, Calculator } from 'lucide-react'
 import { useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { getCategoryColor } from '@/types'
@@ -25,6 +25,62 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
 
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [newCategory, setNewCategory] = useState('')
+  const [showAutoBudget, setShowAutoBudget] = useState(false)
+  const [autoBudgetRange, setAutoBudgetRange] = useState<3 | 6 | 'all'>('all')
+
+  const availableMonths = useMemo(() => {
+    const months = new Set(
+      transactions
+        .filter((t) => t.type === 'expense')
+        .map((t) => t.date.slice(0, 7))
+    )
+    return Array.from(months).sort().reverse()
+  }, [transactions])
+
+  const monthsToUse = useMemo(() => {
+    if (autoBudgetRange === 'all') return availableMonths
+    return availableMonths.slice(0, autoBudgetRange)
+  }, [availableMonths, autoBudgetRange])
+
+  const suggestedBudgets = useMemo(() => {
+    if (monthsToUse.length === 0) return {}
+    const categoryMonthly = new Map<string, number[]>()
+    for (const month of monthsToUse) {
+      const monthTx = transactions.filter(
+        (t) => t.date.startsWith(month) && t.type === 'expense'
+      )
+      const catMap = new Map<string, number>()
+      for (const t of monthTx) {
+        catMap.set(t.category, (catMap.get(t.category) ?? 0) + t.amount)
+      }
+      const allCats = new Set([
+        ...categoryMonthly.keys(),
+        ...catMap.keys(),
+      ])
+      for (const cat of allCats) {
+        const arr = categoryMonthly.get(cat) ?? []
+        arr.push(catMap.get(cat) ?? 0)
+        categoryMonthly.set(cat, arr)
+      }
+    }
+    const result: Record<string, number> = {}
+    for (const [cat, amounts] of categoryMonthly) {
+      const avg = amounts.reduce((s, v) => s + v, 0) / amounts.length
+      if (avg > 0) {
+        result[cat] = Math.round(avg)
+      }
+    }
+    return result
+  }, [transactions, monthsToUse])
+
+  const handleApplyAutoBudget = useCallback(() => {
+    const newDrafts: Record<string, string> = { ...drafts }
+    for (const [cat, amount] of Object.entries(suggestedBudgets)) {
+      newDrafts[cat] = String(amount)
+    }
+    setDrafts(newDrafts)
+    setShowAutoBudget(false)
+  }, [drafts, suggestedBudgets])
 
   const allCategories = useMemo(() => {
     const set = new Set<string>()
@@ -45,6 +101,7 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
     if (open) {
       setDrafts({})
       setNewCategory('')
+      setShowAutoBudget(false)
     }
   }, [open])
 
@@ -126,6 +183,15 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+          {availableMonths.length > 0 && (
+            <button
+              onClick={() => setShowAutoBudget(true)}
+              className="mb-4 flex w-full items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-4 py-2.5 text-sm text-cyan-400 transition-colors hover:bg-cyan-500/10"
+            >
+              <Calculator className="h-4 w-4" />
+              按历史月均生成预算
+            </button>
+          )}
           <div className="flex flex-col gap-3">
             {allCategories.map((category) => {
               const currentBudget = budgets[category]
@@ -212,6 +278,111 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
           </button>
         </div>
       </div>
+
+      {showAutoBudget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAutoBudget(false)} />
+          <div className="relative z-10 mx-4 w-full max-w-md rounded-2xl border border-slate-700/50 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-700/40 px-6 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-100">按历史月均生成预算</h2>
+                <p className="mt-0.5 text-xs text-slate-500">选择参考时间范围，一键填充建议预算</p>
+              </div>
+              <button onClick={() => setShowAutoBudget(false)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="mb-3 text-xs text-slate-400">参考时间范围</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 3 as const, key: '3', label: '最近3个月', disabled: availableMonths.length < 3 },
+                  { value: 6 as const, key: '6', label: '最近6个月', disabled: availableMonths.length < 6 },
+                  { value: 'all' as const, key: 'all', label: `全部月份（${availableMonths.length}个月）`, disabled: availableMonths.length === 0 },
+                ]).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => !opt.disabled && setAutoBudgetRange(opt.value)}
+                    disabled={opt.disabled}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      autoBudgetRange === opt.value
+                        ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-400'
+                        : opt.disabled
+                          ? 'border-slate-700/30 bg-slate-800/30 text-slate-600'
+                          : 'border-slate-700/30 bg-slate-800/50 text-slate-300 hover:border-slate-600/50 hover:bg-slate-700/50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {monthsToUse.length > 0 && (
+                <>
+                  <p className="mb-2 mt-4 text-xs text-slate-400">
+                    预览（基于 {monthsToUse.length} 个月数据）
+                  </p>
+                  <div className="max-h-[40vh] overflow-y-auto">
+                    <div className="flex flex-col gap-2">
+                      {Object.entries(suggestedBudgets)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([cat, amount]) => {
+                          const currentBudget = budgets[cat]
+                          const willChange = currentBudget !== undefined && currentBudget !== amount
+                          const isNew = currentBudget === undefined
+                          return (
+                            <div key={cat} className="flex items-center justify-between rounded-lg border border-slate-700/30 bg-slate-800/50 px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: getCategoryColor(cat, 0) }}
+                                />
+                                <span className="text-sm text-slate-300">{cat}</span>
+                                {isNew && (
+                                  <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-400">新增</span>
+                                )}
+                                {willChange && (
+                                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-400">更新</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {willChange && (
+                                  <span className="text-[11px] text-slate-500 line-through">¥{currentBudget}</span>
+                                )}
+                                <span className="font-mono text-sm text-slate-200">¥{amount}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {monthsToUse.length === 0 && (
+                <p className="mt-3 text-center text-xs text-slate-500">所选时间范围内无支出数据</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-700/40 px-6 py-4">
+              <button
+                onClick={() => setShowAutoBudget(false)}
+                className="rounded-lg bg-slate-700/40 px-4 py-2 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700/60"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleApplyAutoBudget}
+                disabled={Object.keys(suggestedBudgets).length === 0}
+                className="rounded-lg bg-cyan-500/15 px-4 py-2 text-xs font-medium text-cyan-400 transition-colors hover:bg-cyan-500/25 disabled:opacity-40 disabled:hover:bg-cyan-500/15"
+              >
+                填入预算
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

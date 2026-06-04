@@ -44,28 +44,18 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
 
   const suggestedBudgets = useMemo(() => {
     if (monthsToUse.length === 0) return {}
-    const categoryMonthly = new Map<string, number[]>()
+    const categoryTotals = new Map<string, number>()
     for (const month of monthsToUse) {
       const monthTx = transactions.filter(
         (t) => t.date.startsWith(month) && t.type === 'expense'
       )
-      const catMap = new Map<string, number>()
       for (const t of monthTx) {
-        catMap.set(t.category, (catMap.get(t.category) ?? 0) + t.amount)
-      }
-      const allCats = new Set([
-        ...categoryMonthly.keys(),
-        ...catMap.keys(),
-      ])
-      for (const cat of allCats) {
-        const arr = categoryMonthly.get(cat) ?? []
-        arr.push(catMap.get(cat) ?? 0)
-        categoryMonthly.set(cat, arr)
+        categoryTotals.set(t.category, (categoryTotals.get(t.category) ?? 0) + t.amount)
       }
     }
     const result: Record<string, number> = {}
-    for (const [cat, amounts] of categoryMonthly) {
-      const avg = amounts.reduce((s, v) => s + v, 0) / amounts.length
+    for (const [cat, total] of categoryTotals) {
+      const avg = total / monthsToUse.length
       if (avg > 0) {
         result[cat] = Math.round(avg)
       }

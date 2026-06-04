@@ -33,38 +33,50 @@ export default function TransactionTable() {
   const [localSearch, setLocalSearch] = useState(filter.searchText)
   const [localMin, setLocalMin] = useState(filter.amountMin !== null ? String(filter.amountMin) : '')
   const [localMax, setLocalMax] = useState(filter.amountMax !== null ? String(filter.amountMax) : '')
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const minDebounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const maxDebounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const minInputRef = useRef<HTMLInputElement>(null)
+  const maxInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setPage(0)
   }, [filter.selectedCategory, filter.selectedMonth, filter.selectedDate, filter.selectedMerchant, filter.selectedType, filter.searchText, filter.amountMin, filter.amountMax])
 
   useEffect(() => {
-    setLocalSearch(filter.searchText)
-    setLocalMin(filter.amountMin !== null ? String(filter.amountMin) : '')
-    setLocalMax(filter.amountMax !== null ? String(filter.amountMax) : '')
+    const focused = document.activeElement
+    if (focused !== searchInputRef.current) {
+      setLocalSearch(filter.searchText)
+    }
+    if (focused !== minInputRef.current) {
+      setLocalMin(filter.amountMin !== null ? String(filter.amountMin) : '')
+    }
+    if (focused !== maxInputRef.current) {
+      setLocalMax(filter.amountMax !== null ? String(filter.amountMax) : '')
+    }
   }, [filter.searchText, filter.amountMin, filter.amountMax])
 
   const handleSearchChange = (value: string) => {
     setLocalSearch(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
+    clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
       setFilter({ searchText: value })
     }, 300)
   }
 
   const handleMinChange = (value: string) => {
     setLocalMin(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
+    clearTimeout(minDebounceRef.current)
+    minDebounceRef.current = setTimeout(() => {
       setFilter({ amountMin: parseAmountInput(value) })
     }, 300)
   }
 
   const handleMaxChange = (value: string) => {
     setLocalMax(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
+    clearTimeout(maxDebounceRef.current)
+    maxDebounceRef.current = setTimeout(() => {
       setFilter({ amountMax: parseAmountInput(value) })
     }, 300)
   }
@@ -90,6 +102,7 @@ export default function TransactionTable() {
         <div className="relative flex-1 min-w-[180px]">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
           <input
+            ref={searchInputRef}
             type="text"
             value={localSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -100,6 +113,7 @@ export default function TransactionTable() {
         <div className="flex items-center gap-1.5 text-xs text-slate-400">
           <span>金额</span>
           <input
+            ref={minInputRef}
             type="number"
             min="0"
             step="0.01"
@@ -110,6 +124,7 @@ export default function TransactionTable() {
           />
           <span className="text-slate-600">~</span>
           <input
+            ref={maxInputRef}
             type="number"
             min="0"
             step="0.01"

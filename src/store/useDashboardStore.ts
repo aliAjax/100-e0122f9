@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Transaction, FilterState, Bill, TransactionType } from '@/types'
-import type { CSVPreviewResult } from '@/utils/csvParser'
+import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
+import { parseRows } from '@/utils/csvParser'
 import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
 
@@ -106,7 +107,7 @@ interface DashboardStore {
   clearData: () => void
   setPreviewResult: (result: CSVPreviewResult | null) => void
   setPendingBillName: (name: string | null) => void
-  confirmPreview: (billName: string) => void
+  confirmPreview: (billName: string, customMappings?: MappedColumns) => void
 }
 
 function getCurrentBill(state: DashboardStore): Bill | undefined {
@@ -225,14 +226,39 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   setPendingBillName: (name) => set({ pendingBillName: name }),
 
-  confirmPreview: (billName) => {
+  confirmPreview: (billName, customMappings) => {
     const { previewResult } = get()
-    if (!previewResult || previewResult.allTransactions.length === 0) {
+    if (!previewResult) {
       set({ previewResult: null })
       return
     }
+
+    let transactions = previewResult.allTransactions
+
+    if (customMappings) {
+      const { date, category, merchant, amount, type } = customMappings
+      if (!date || !amount) {
+        set({ previewResult: null })
+        return
+      }
+      const { transactions: parsedTxs } = parseRows(
+        previewResult.rawRows,
+        date,
+        category,
+        merchant,
+        amount,
+        type,
+      )
+      transactions = parsedTxs
+    }
+
+    if (transactions.length === 0) {
+      set({ previewResult: null })
+      return
+    }
+
     const rules = useCategoryRuleStore.getState().rules
-    const { transactions: txs } = applyCategoryRules(previewResult.allTransactions, rules, true)
+    const { transactions: txs } = applyCategoryRules(transactions, rules, true)
     get().createBill(billName, txs)
   },
 }))

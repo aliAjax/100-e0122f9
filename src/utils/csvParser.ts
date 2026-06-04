@@ -53,6 +53,7 @@ export interface CSVPreviewResult {
   invalidReasons: string[]
   previewRows: Transaction[]
   allTransactions: Transaction[]
+  rawRows: Record<string, string>[]
 }
 
 function findColumn(headers: string[], aliases: string[]): string | null {
@@ -64,7 +65,7 @@ function findColumn(headers: string[], aliases: string[]): string | null {
   return null
 }
 
-function parseRows(
+export function parseRows(
   rows: Record<string, string>[],
   dateCol: string,
   categoryCol: string | null,
@@ -191,8 +192,9 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
           type: typeCol,
         }
 
+        const rawRows = results.data as Record<string, string>[]
         if (!dateCol || !amountCol) {
-          const dataRows = (results.data as Record<string, string>[]).length
+          const dataRows = rawRows.length
           resolve({
             headers,
             mappedColumns,
@@ -202,13 +204,13 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
             invalidReasons: ['CSV 缺少必要列：日期(date) 和 金额(amount)'],
             previewRows: [],
             allTransactions: [],
+            rawRows,
           })
           return
         }
 
-        const rows = results.data as Record<string, string>[]
         const { transactions, invalidCount, invalidReasons } = parseRows(
-          rows,
+          rawRows,
           dateCol,
           categoryCol,
           merchantCol,
@@ -217,7 +219,7 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
         )
 
         const finalInvalidReasons = [...invalidReasons]
-        if (rows.length === 0) {
+        if (rawRows.length === 0) {
           finalInvalidReasons.unshift('CSV 文件没有数据行（只有表头）')
         } else if (transactions.length === 0 && invalidReasons.length === 0) {
           finalInvalidReasons.unshift('未识别到有效交易记录，请检查 CSV 格式')
@@ -226,12 +228,13 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
         resolve({
           headers,
           mappedColumns,
-          totalRows: rows.length,
+          totalRows: rawRows.length,
           validCount: transactions.length,
-          invalidCount: rows.length === 0 ? 1 : invalidCount,
+          invalidCount: rawRows.length === 0 ? 1 : invalidCount,
           invalidReasons: finalInvalidReasons,
           previewRows: transactions.slice(0, 10),
           allTransactions: transactions,
+          rawRows,
         })
       },
       error(err: Error) {

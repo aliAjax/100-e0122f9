@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { CheckCircle, XCircle, AlertTriangle, X, FileSpreadsheet } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { CheckCircle, XCircle, AlertTriangle, X, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 import { TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
+import { parseRows, type MappedColumns } from '@/utils/csvParser'
 
 const FIELD_LABELS: Record<string, string> = {
   date: '日期',
@@ -11,6 +12,8 @@ const FIELD_LABELS: Record<string, string> = {
   amount: '金额',
   type: '类型',
 }
+
+const FIELD_FIELDS = ['date', 'amount', 'type', 'category', 'merchant'] as const
 
 export default function CSVPreviewModal() {
   const previewResult = useDashboardStore((s) => s.previewResult)
@@ -21,10 +24,58 @@ export default function CSVPreviewModal() {
   const bills = useDashboardStore((s) => s.bills)
 
   const [billName, setBillName] = useState(pendingBillName || `账单 ${bills.length + 1}`)
+  const [userMappings, setUserMappings] = useState<MappedColumns>(() =>
+    previewResult ? { ...previewResult.mappedColumns } : { date: null, category: null, merchant: null, amount: null, type: null }
+  )
+
+  const parsedResult = useMemo(() => {
+    if (!previewResult) {
+      return {
+        validCount: 0,
+        invalidCount: 0,
+        invalidReasons: [],
+        previewRows: [],
+        allTransactions: [],
+      }
+    }
+    const { date, category, merchant, amount, type } = userMappings
+    if (!date || !amount) {
+      return {
+        validCount: 0,
+        invalidCount: previewResult.rawRows.length,
+        invalidReasons: ['请选择日期和金额对应的列'],
+        previewRows: [],
+        allTransactions: [],
+      }
+    }
+    const { transactions, invalidCount, invalidReasons } = parseRows(
+      previewResult.rawRows,
+      date,
+      category,
+      merchant,
+      amount,
+      type,
+    )
+    return {
+      validCount: transactions.length,
+      invalidCount,
+      invalidReasons,
+      previewRows: transactions.slice(0, 10),
+      allTransactions: transactions,
+    }
+  }, [userMappings, previewResult])
 
   if (!previewResult) return null
 
-  const hasError = previewResult.validCount === 0 && previewResult.invalidReasons.length > 0
+  const hasError = parsedResult.validCount === 0 && parsedResult.invalidReasons.length > 0
+  const hasRequired = userMappings.date !== null && userMappings.amount !== null
+
+  const handleMappingChange = (field: keyof MappedColumns, value: string) => {
+    setUserMappings((prev) => ({
+      ...prev,
+      [field]: value === '' ? null : value,
+    }))
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -49,32 +100,47 @@ export default function CSVPreviewModal() {
 
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
           <div className="mb-5">
-            <h3 className="mb-2.5 text-sm font-medium text-slate-300">识别到的列名</h3>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {(['date', 'amount', 'type', 'category', 'merchant'] as const).map((field) => {
-                const colName = previewResult.mappedColumns[field]
+            <h3 className="mb-2.5 text-sm font-medium text-slate-300">列名映射</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {FIELD_FIELDS.map((field) => {
+                const colName = userMappings[field]
+                const isRequired = field === 'date' || field === 'amount'
                 return (
-                  <div
-                    key={field}
-                    className={cn(
-                      'rounded-lg border px-3 py-2',
-                      colName
-                        ? 'border-emerald-500/30 bg-emerald-500/5'
-                        : field === 'date' || field === 'amount'
-                          ? 'border-red-500/30 bg-red-500/5'
-                          : 'border-slate-700/40 bg-slate-800/30',
-                    )}
-                  >
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500">{FIELD_LABELS[field]}</p>
-                    <p className={cn('mt-0.5 text-sm font-medium', colName ? 'text-emerald-400' : 'text-slate-600')}>
-                      {colName ?? '未识别'}
-                    </p>
+                  <div key={field}>
+                    <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                      {FIELD_LABELS[field]}
+                      {isRequired && <span className="ml-1 text-red-400">*</span>}
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={colName ?? ''}
+                        onChange={(e) => handleMappingChange(field, e.target.value)}
+                        className={cn(
+                          'w-full appearance-none rounded-lg border px-3 py-2 text-sm font-medium outline-none transition-colors',
+                          colName
+                            ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400'
+                            : isRequired
+                              ? 'border-red-500/30 bg-red-500/5 text-red-400'
+                              : 'border-slate-700/40 bg-slate-800/30 text-slate-400',
+                        )}
+                      >
+                        <option value="" className="bg-[#0d1420] text-slate-500">
+                          不使用
+                        </option>
+                        {previewResult.headers.map((header) => (
+                          <option key={header} value={header} className="bg-[#0d1420] text-slate-200">
+                            {header}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                    </div>
                   </div>
                 )
               })}
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              全部列：{previewResult.headers.length > 0 ? previewResult.headers.join('、') : '（无）'}
+            <p className="mt-3 text-xs text-slate-500">
+              全部可用列：{previewResult.headers.length > 0 ? previewResult.headers.join('、') : '（无）'}
             </p>
           </div>
 
@@ -84,23 +150,23 @@ export default function CSVPreviewModal() {
               <p className="mt-0.5 text-xs text-slate-500">总行数</p>
             </div>
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-center">
-              <p className="text-2xl font-bold text-emerald-400">{previewResult.validCount}</p>
+              <p className="text-2xl font-bold text-emerald-400">{parsedResult.validCount}</p>
               <p className="mt-0.5 text-xs text-slate-500">有效记录</p>
             </div>
             <div className={cn(
               'rounded-xl border px-4 py-3 text-center',
-              previewResult.invalidCount > 0
+              parsedResult.invalidCount > 0
                 ? 'border-amber-500/30 bg-amber-500/5'
                 : 'border-slate-700/40 bg-slate-800/30',
             )}>
-              <p className={cn('text-2xl font-bold', previewResult.invalidCount > 0 ? 'text-amber-400' : 'text-slate-100')}>
-                {previewResult.invalidCount}
+              <p className={cn('text-2xl font-bold', parsedResult.invalidCount > 0 ? 'text-amber-400' : 'text-slate-100')}>
+                {parsedResult.invalidCount}
               </p>
               <p className="mt-0.5 text-xs text-slate-500">无效行</p>
             </div>
           </div>
 
-          {previewResult.invalidReasons.length > 0 && (
+          {parsedResult.invalidReasons.length > 0 && (
             <div className={cn(
               'mb-5 rounded-xl border px-4 py-3',
               hasError
@@ -118,7 +184,7 @@ export default function CSVPreviewModal() {
                 </span>
               </div>
               <ul className="mt-2 space-y-1">
-                {previewResult.invalidReasons.map((reason, i) => (
+                {parsedResult.invalidReasons.map((reason, i) => (
                   <li key={i} className={cn('text-xs', hasError ? 'text-red-400/80' : 'text-amber-400/80')}>
                     • {reason}
                   </li>
@@ -127,12 +193,12 @@ export default function CSVPreviewModal() {
             </div>
           )}
 
-          {previewResult.previewRows.length > 0 && (
+          {parsedResult.previewRows.length > 0 && (
             <div>
               <h3 className="mb-2.5 text-sm font-medium text-slate-300">
                 数据预览
                 <span className="ml-2 text-xs font-normal text-slate-500">
-                  前 {previewResult.previewRows.length} 条
+                  前 {parsedResult.previewRows.length} 条
                 </span>
               </h3>
               <div className="overflow-x-auto rounded-xl border border-slate-700/40">
@@ -148,7 +214,7 @@ export default function CSVPreviewModal() {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewResult.previewRows.map((tx, i) => (
+                    {parsedResult.previewRows.map((tx, i) => (
                       <tr key={tx.id} className="border-b border-slate-700/20 last:border-0">
                         <td className="px-3 py-2 text-slate-500">{i + 1}</td>
                         <td className="px-3 py-2 text-slate-300">{tx.date}</td>
@@ -204,19 +270,19 @@ export default function CSVPreviewModal() {
             </button>
             <button
               onClick={() => {
-                confirmPreview(billName)
+                confirmPreview(billName, userMappings)
                 setPendingBillName(null)
               }}
-              disabled={hasError || !billName.trim()}
+              disabled={hasError || !billName.trim() || !hasRequired}
               className={cn(
                 'inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition-all',
-                hasError || !billName.trim()
+                hasError || !billName.trim() || !hasRequired
                   ? 'cursor-not-allowed bg-slate-700/30 text-slate-600'
                   : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]',
               )}
             >
               <CheckCircle className="h-4 w-4" />
-              确认导入{previewResult.validCount > 0 ? `（${previewResult.validCount} 条）` : ''}
+              确认导入{parsedResult.validCount > 0 ? `（${parsedResult.validCount} 条）` : ''}
             </button>
           </div>
         </div>

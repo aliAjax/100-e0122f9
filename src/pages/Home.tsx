@@ -92,7 +92,7 @@ export default function Home() {
               <>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60">
                   <Upload className="h-3.5 w-3.5" />
-                  导入新账单
+                  导入账单
                   <input id="bill-file-input" type="file" accept=".csv" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return

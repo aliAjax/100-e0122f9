@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Transaction, FilterState, Bill, TransactionType, SavedView } from '@/types'
 import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
-import { parseRows } from '@/utils/csvParser'
+import { parseRows, detectDuplicates } from '@/utils/csvParser'
 import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
 
@@ -103,6 +103,7 @@ interface DashboardStore {
   previewResult: CSVPreviewResult | null
   pendingBillName: string | null
   createBill: (name: string, transactions: Transaction[]) => void
+  mergeToCurrentBill: (transactions: Transaction[]) => void
   switchBill: (billId: string) => void
   renameBill: (billId: string, name: string) => void
   deleteBill: (billId: string) => void
@@ -113,6 +114,7 @@ interface DashboardStore {
   setPreviewResult: (result: CSVPreviewResult | null) => void
   setPendingBillName: (name: string | null) => void
   confirmPreview: (billName: string, customMappings?: MappedColumns) => void
+  confirmPreviewMerge: (customMappings?: MappedColumns) => void
   saveView: (name: string) => void
   switchView: (viewId: string) => void
   renameView: (viewId: string, name: string) => void
@@ -160,6 +162,20 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         previewResult: null,
         pendingBillName: null,
       }
+    })
+  },
+
+  mergeToCurrentBill: (transactions) => {
+    set((state) => {
+      const currentBill = getCurrentBill(state)
+      if (!currentBill) return state
+      const bills = state.bills.map((b) =>
+        b.id === state.currentBillId
+          ? { ...b, transactions: [...b.transactions, ...transactions] }
+          : b,
+      )
+      saveBills(bills)
+      return { bills, previewResult: null, pendingBillName: null }
     })
   },
 
@@ -332,6 +348,50 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     const rules = useCategoryRuleStore.getState().rules
     const { transactions: txs } = applyCategoryRules(transactions, rules, true)
     get().createBill(billName, txs)
+  },
+
+  confirmPreviewMerge: (customMappings) => {
+    const { previewResult, bills, currentBillId } = get()
+    if (!previewResult) {
+      set({ previewResult: null })
+      return
+    }
+
+    let transactions = previewResult.allTransactions
+
+    if (customMappings) {
+      const { date, category, merchant, amount, type } = customMappings
+      if (!date || !amount) {
+        set({ previewResult: null })
+        return
+      }
+      const { transactions: parsedTxs } = parseRows(
+        previewResult.rawRows,
+        date,
+        category,
+        merchant,
+        amount,
+        type,
+      )
+      transactions = parsedTxs
+    }
+
+    if (transactions.length === 0) {
+      set({ previewResult: null })
+      return
+    }
+
+    const rules = useCategoryRuleStore.getState().rules
+    const { transactions: txs } = applyCategoryRules(transactions, rules, true)
+
+    const currentBill = bills.find((b) => b.id === currentBillId)
+    if (currentBill) {
+      const { duplicateIds } = detectDuplicates(txs, currentBill.transactions)
+      const nonDuplicate = txs.filter((t) => !duplicateIds.has(t.id))
+      get().mergeToCurrentBill(nonDuplicate)
+    } else {
+      set({ previewResult: null, pendingBillName: null })
+    }
   },
 }))
 

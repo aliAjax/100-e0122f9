@@ -142,6 +142,23 @@ export function parseRows(
 
 let idCounter = 0
 
+export function detectDuplicates(
+  newTransactions: Transaction[],
+  existingTransactions: Transaction[],
+): { duplicateCount: number; duplicateIds: Set<string> } {
+  const existingSet = new Set<string>()
+  for (const t of existingTransactions) {
+    existingSet.add(`${t.date}|${t.amount}|${t.merchant}|${t.type}`)
+  }
+  const duplicateIds = new Set<string>()
+  for (const t of newTransactions) {
+    if (existingSet.has(`${t.date}|${t.amount}|${t.merchant}|${t.type}`)) {
+      duplicateIds.add(t.id)
+    }
+  }
+  return { duplicateCount: duplicateIds.size, duplicateIds }
+}
+
 export function parseCSV(file: File): Promise<Transaction[]> {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {

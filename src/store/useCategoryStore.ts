@@ -23,15 +23,67 @@ export interface CategoryItem {
   color: string
 }
 
+function collectExistingCategoryNames(): Set<string> {
+  const names = new Set<string>()
+  try {
+    const billsRaw = localStorage.getItem('spendlens_bills')
+    if (billsRaw) {
+      const bills = JSON.parse(billsRaw) as Array<{ transactions: Array<{ category: string }> }>
+      for (const bill of bills) {
+        for (const t of bill.transactions) {
+          if (t.category) names.add(t.category)
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  try {
+    const budgetsRaw = localStorage.getItem('spendlens_budgets')
+    if (budgetsRaw) {
+      const budgets = JSON.parse(budgetsRaw) as Record<string, number>
+      for (const cat of Object.keys(budgets)) {
+        names.add(cat)
+      }
+    }
+  } catch { /* ignore */ }
+  try {
+    const rulesRaw = localStorage.getItem('spendlens_category_rules')
+    if (rulesRaw) {
+      const rules = JSON.parse(rulesRaw) as Array<{ category: string }>
+      for (const r of rules) {
+        if (r.category) names.add(r.category)
+      }
+    }
+  } catch { /* ignore */ }
+  return names
+}
+
 function loadCategories(): CategoryItem[] {
+  let categories: CategoryItem[]
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        categories = parsed
+      } else {
+        categories = [...DEFAULT_CATEGORIES]
+      }
+    } else {
+      categories = [...DEFAULT_CATEGORIES]
     }
-  } catch {}
-  return DEFAULT_CATEGORIES
+  } catch { /* ignore */
+    categories = [...DEFAULT_CATEGORIES]
+  }
+
+  const existing = collectExistingCategoryNames()
+  const known = new Set(categories.map((c) => c.name))
+  for (const name of existing) {
+    if (!known.has(name)) {
+      categories.push({ name, color: pickNextColor(categories) })
+      known.add(name)
+    }
+  }
+  return categories
 }
 
 function saveCategories(categories: CategoryItem[]) {

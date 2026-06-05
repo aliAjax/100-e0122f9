@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Transaction, FilterState, Bill, TransactionType } from '@/types'
+import type { Transaction, FilterState, Bill, TransactionType, SavedView } from '@/types'
 import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
 import { parseRows } from '@/utils/csvParser'
 import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
@@ -37,6 +37,7 @@ function loadBills(): Bill[] {
           ...createEmptyFilter(),
           ...bill.filter,
         },
+        savedViews: bill.savedViews ?? [],
         transactions: bill.transactions.map((t) => ({
           ...t,
           type: ((t as { type?: string }).type || 'expense') as TransactionType,
@@ -60,6 +61,7 @@ function loadBills(): Bill[] {
           name: '默认账单',
           transactions: migratedTransactions,
           filter: createEmptyFilter(),
+          savedViews: [],
           createdAt: Date.now(),
         }
         const bills = [legacyBill]
@@ -111,6 +113,10 @@ interface DashboardStore {
   setPreviewResult: (result: CSVPreviewResult | null) => void
   setPendingBillName: (name: string | null) => void
   confirmPreview: (billName: string, customMappings?: MappedColumns) => void
+  saveView: (name: string) => void
+  switchView: (viewId: string) => void
+  renameView: (viewId: string, name: string) => void
+  deleteView: (viewId: string) => void
 }
 
 function getCurrentBill(state: DashboardStore): Bill | undefined {
@@ -141,6 +147,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       name: name.trim() || '未命名账单',
       transactions,
       filter: createEmptyFilter(),
+      savedViews: [],
       createdAt: Date.now(),
     }
     set((state) => {
@@ -229,6 +236,68 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   setPendingBillName: (name) => set({ pendingBillName: name }),
 
+  saveView: (name) => {
+    set((state) => {
+      const bill = getCurrentBill(state)
+      if (!bill) return state
+      const newView: SavedView = {
+        id: generateId(),
+        name: name.trim() || '未命名视图',
+        filter: { ...bill.filter },
+        createdAt: Date.now(),
+      }
+      const bills = state.bills.map((b) =>
+        b.id === state.currentBillId ? { ...b, savedViews: [...b.savedViews, newView] } : b,
+      )
+      saveBills(bills)
+      return { bills }
+    })
+  },
+
+  switchView: (viewId) => {
+    set((state) => {
+      const bill = getCurrentBill(state)
+      if (!bill) return state
+      const view = bill.savedViews.find((v) => v.id === viewId)
+      if (!view) return state
+      const bills = state.bills.map((b) =>
+        b.id === state.currentBillId ? { ...b, filter: { ...view.filter } } : b,
+      )
+      saveBills(bills)
+      return { bills }
+    })
+  },
+
+  renameView: (viewId, name) => {
+    set((state) => {
+      const bills = state.bills.map((b) => {
+        if (b.id !== state.currentBillId) return b
+        return {
+          ...b,
+          savedViews: b.savedViews.map((v) =>
+            v.id === viewId ? { ...v, name: name.trim() || '未命名视图' } : v,
+          ),
+        }
+      })
+      saveBills(bills)
+      return { bills }
+    })
+  },
+
+  deleteView: (viewId) => {
+    set((state) => {
+      const bills = state.bills.map((b) => {
+        if (b.id !== state.currentBillId) return b
+        return {
+          ...b,
+          savedViews: b.savedViews.filter((v) => v.id !== viewId),
+        }
+      })
+      saveBills(bills)
+      return { bills }
+    })
+  },
+
   confirmPreview: (billName, customMappings) => {
     const { previewResult } = get()
     if (!previewResult) {
@@ -280,4 +349,8 @@ export function useFilter(): FilterState {
 
 export function useDataLoaded(): boolean {
   return useDashboardStore((s) => getDataLoaded(s))
+}
+
+export function useSavedViews(): SavedView[] {
+  return useDashboardStore((s) => getCurrentBill(s)?.savedViews ?? [])
 }

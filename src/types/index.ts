@@ -41,11 +41,19 @@ export interface FilterState {
   amountMax: number | null
 }
 
+export interface SavedView {
+  id: string
+  name: string
+  filter: FilterState
+  createdAt: number
+}
+
 export interface Bill {
   id: string
   name: string
   transactions: Transaction[]
   filter: FilterState
+  savedViews: SavedView[]
   createdAt: number
 }
 

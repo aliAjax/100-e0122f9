@@ -22,7 +22,8 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
   const transactions = useTransactions()
   const setCurrentBillTransactions = useDashboardStore((s) => s.setCurrentBillTransactions)
 
-  const categoryNames = useCategoryStore((s) => s.categories.map((c) => c.name))
+  const categories = useCategoryStore((s) => s.categories)
+  const categoryNames = useMemo(() => categories.map((c) => c.name), [categories])
 
   const [newKeyword, setNewKeyword] = useState('')
   const [newCategory, setNewCategory] = useState('')

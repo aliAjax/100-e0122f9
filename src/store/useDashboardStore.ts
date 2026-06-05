@@ -121,16 +121,20 @@ interface DashboardStore {
   deleteView: (viewId: string) => void
 }
 
+export const EMPTY_TRANSACTIONS: Transaction[] = []
+const EMPTY_FILTER: FilterState = createEmptyFilter()
+const EMPTY_VIEWS: SavedView[] = []
+
 function getCurrentBill(state: DashboardStore): Bill | undefined {
   return state.bills.find((b) => b.id === state.currentBillId)
 }
 
 function getCurrentTransactions(state: DashboardStore): Transaction[] {
-  return getCurrentBill(state)?.transactions ?? []
+  return getCurrentBill(state)?.transactions ?? EMPTY_TRANSACTIONS
 }
 
 function getCurrentFilter(state: DashboardStore): FilterState {
-  return getCurrentBill(state)?.filter ?? createEmptyFilter()
+  return getCurrentBill(state)?.filter ?? EMPTY_FILTER
 }
 
 function getDataLoaded(state: DashboardStore): boolean {
@@ -396,7 +400,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 }))
 
 export function useCurrentBill(): Bill | null {
-  return useDashboardStore((s) => getCurrentBill(s) ?? null)
+  return useDashboardStore((s) => {
+    const bill = getCurrentBill(s)
+    return bill ?? null
+  })
 }
 
 export function useTransactions(): Transaction[] {
@@ -412,5 +419,5 @@ export function useDataLoaded(): boolean {
 }
 
 export function useSavedViews(): SavedView[] {
-  return useDashboardStore((s) => getCurrentBill(s)?.savedViews ?? [])
+  return useDashboardStore((s) => getCurrentBill(s)?.savedViews ?? EMPTY_VIEWS)
 }

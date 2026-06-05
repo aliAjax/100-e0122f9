@@ -98,6 +98,7 @@ export default function CSVPreviewModal() {
 
   const hasError = parsedResult.validCount === 0 && parsedResult.invalidReasons.length > 0
   const hasRequired = userMappings.date !== null && userMappings.amount !== null
+  const isAllDuplicate = importMode === 'merge' && parsedResult.validCount > 0 && nonDuplicateCount === 0
   const canConfirm =
     importMode === 'create'
       ? !hasError && billName.trim() !== '' && hasRequired
@@ -266,7 +267,21 @@ export default function CSVPreviewModal() {
             )}
           </div>
 
-          {importMode === 'merge' && duplicateInfo.duplicateCount > 0 && (
+          {importMode === 'merge' && isAllDuplicate && (
+            <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                <span className="text-sm font-medium text-red-400">
+                  所有 {parsedResult.validCount} 条记录均与现有数据重复
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-red-400/80">
+                依据日期、金额、商户、类型判断，没有新记录可追加。你可以切换为「创建新账单」导入，或关闭此窗口。
+              </p>
+            </div>
+          )}
+
+          {importMode === 'merge' && duplicateInfo.duplicateCount > 0 && !isAllDuplicate && (
             <div className="mb-5 rounded-xl border border-orange-500/30 bg-orange-500/5 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Copy className="h-4 w-4 shrink-0 text-orange-400" />
@@ -428,37 +443,47 @@ export default function CSVPreviewModal() {
               }}
               className="rounded-xl bg-slate-700/40 px-5 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700/60"
             >
-              取消
+              {isAllDuplicate ? '关闭' : '取消'}
             </button>
-            <button
-              onClick={() => {
-                if (importMode === 'create') {
-                  confirmPreview(billName, userMappings)
-                } else {
-                  confirmPreviewMerge(userMappings)
-                }
-                setPendingBillName(null)
-              }}
-              disabled={!canConfirm}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition-all',
-                !canConfirm
-                  ? 'cursor-not-allowed bg-slate-700/30 text-slate-600'
-                  : importMode === 'create'
-                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                    : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]',
-              )}
-            >
-              {importMode === 'create' ? (
+            {isAllDuplicate ? (
+              <button
+                onClick={() => setImportMode('create')}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/20 px-5 py-2 text-sm font-medium text-emerald-400 transition-all hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+              >
                 <Plus className="h-4 w-4" />
-              ) : (
-                <Merge className="h-4 w-4" />
-              )}
-              {importMode === 'create'
-                ? `创建账单${parsedResult.validCount > 0 ? `（${parsedResult.validCount} 条）` : ''}`
-                : `合并到当前账单${nonDuplicateCount > 0 ? `（追加 ${nonDuplicateCount} 条）` : ''}`
-              }
-            </button>
+                改为创建新账单
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (importMode === 'create') {
+                    confirmPreview(billName, userMappings)
+                  } else {
+                    confirmPreviewMerge(userMappings)
+                  }
+                  setPendingBillName(null)
+                }}
+                disabled={!canConfirm}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition-all',
+                  !canConfirm
+                    ? 'cursor-not-allowed bg-slate-700/30 text-slate-600'
+                    : importMode === 'create'
+                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                      : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]',
+                )}
+              >
+                {importMode === 'create' ? (
+                  <Plus className="h-4 w-4" />
+                ) : (
+                  <Merge className="h-4 w-4" />
+                )}
+                {importMode === 'create'
+                  ? `创建账单${parsedResult.validCount > 0 ? `（${parsedResult.validCount} 条）` : ''}`
+                  : `合并到当前账单（追加 ${nonDuplicateCount} 条）`
+                }
+              </button>
+            )}
           </div>
         </div>
       </div>

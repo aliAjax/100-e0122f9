@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import { useDashboardStore } from '@/store/useDashboardStore'
+import { EMPTY_TRANSACTIONS } from '@/store/useDashboardStore'
+import type { Transaction } from '@/types'
 import { DEFAULT_COLORS } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -32,7 +34,7 @@ export default function CategoryManagementModal({ open, onClose }: Props) {
   const transactions = useDashboardStore((s) => {
     const billId = s.currentBillId
     const bill = s.bills.find((b) => b.id === billId)
-    return bill?.transactions ?? []
+    return bill?.transactions ?? (EMPTY_TRANSACTIONS as Transaction[])
   })
 
   const [newCatName, setNewCatName] = useState('')

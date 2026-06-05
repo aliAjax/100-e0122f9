@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag, GitCompare } from 'lucide-react'
+import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag, GitCompare, Palette } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useDashboardStore, useDataLoaded, useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
@@ -9,6 +9,7 @@ import CSVUploader from '@/components/CSVUploader'
 import CSVPreviewModal from '@/components/CSVPreviewModal'
 import BudgetSettingsModal from '@/components/BudgetSettingsModal'
 import CategoryRuleModal from '@/components/CategoryRuleModal'
+import CategoryManagementModal from '@/components/CategoryManagementModal'
 import BillSelector from '@/components/BillSelector'
 import BudgetProgress from '@/components/BudgetProgress'
 import StatsCards from '@/components/StatsCards'
@@ -31,6 +32,7 @@ export default function Home() {
   const [reimportError, setReimportError] = useState<string | null>(null)
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const [categoryRuleModalOpen, setCategoryRuleModalOpen] = useState(false)
+  const [categoryMgmtOpen, setCategoryMgmtOpen] = useState(false)
   const hasBudgets = useBudgetStore((s) => Object.keys(s.budgets).length > 0)
   const hasCategoryRules = useCategoryRuleStore((s) => s.rules.length > 0)
 
@@ -48,6 +50,13 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCategoryMgmtOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
+            >
+              <Palette className="h-3.5 w-3.5" />
+              分类管理
+            </button>
             <button
               onClick={() => setCategoryRuleModalOpen(true)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasCategoryRules ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
@@ -176,6 +185,7 @@ export default function Home() {
       <CSVPreviewModal />
       <BudgetSettingsModal open={budgetModalOpen} onClose={() => setBudgetModalOpen(false)} />
       <CategoryRuleModal open={categoryRuleModalOpen} onClose={() => setCategoryRuleModalOpen(false)} />
+      <CategoryManagementModal open={categoryMgmtOpen} onClose={() => setCategoryMgmtOpen(false)} />
     </div>
   )
 }

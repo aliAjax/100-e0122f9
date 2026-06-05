@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { X, Plus, Trash2, Tag, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { useDashboardStore, useTransactions } from '@/store/useDashboardStore'
-import { CATEGORY_LIST, getCategoryColor } from '@/types'
+import { useCategoryStore } from '@/store/useCategoryStore'
+import { getCategoryColor } from '@/types'
 import { applyCategoryRulesWithPreserve } from '@/utils/categoryRuleMatcher'
 import { cn } from '@/lib/utils'
 
@@ -21,11 +22,13 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
   const transactions = useTransactions()
   const setCurrentBillTransactions = useDashboardStore((s) => s.setCurrentBillTransactions)
 
+  const categoryNames = useCategoryStore((s) => s.categories.map((c) => c.name))
+
   const [newKeyword, setNewKeyword] = useState('')
-  const [newCategory, setNewCategory] = useState(CATEGORY_LIST[0])
+  const [newCategory, setNewCategory] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editKeyword, setEditKeyword] = useState('')
-  const [editCategory, setEditCategory] = useState(CATEGORY_LIST[0])
+  const [editCategory, setEditCategory] = useState('')
   const [reclassifyResult, setReclassifyResult] = useState<{ matched: number; unchanged: number } | null>(null)
   const [isReclassifying, setIsReclassifying] = useState(false)
 
@@ -37,11 +40,11 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
   useEffect(() => {
     if (open) {
       setNewKeyword('')
-      setNewCategory(CATEGORY_LIST[0])
+      setNewCategory(categoryNames[0] ?? '')
       setEditingId(null)
       setReclassifyResult(null)
     }
-  }, [open])
+  }, [open, categoryNames])
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -165,7 +168,7 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
                 onChange={(e) => setNewCategory(e.target.value)}
                 className="rounded-lg border border-slate-600/40 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 outline-none transition-colors focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20"
               >
-                {CATEGORY_LIST.map((cat) => (
+                {categoryNames.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -274,7 +277,7 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
                         onChange={(e) => setEditCategory(e.target.value)}
                         className="rounded-lg border border-blue-500/40 bg-slate-900/80 px-2 py-1 text-sm text-slate-200 outline-none"
                       >
-                        {CATEGORY_LIST.map((cat) => (
+                        {categoryNames.map((cat) => (
                           <option key={cat} value={cat}>{cat}</option>
                         ))}
                       </select>

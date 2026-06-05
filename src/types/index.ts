@@ -90,7 +90,16 @@ export const DEFAULT_COLORS = [
   '#14B8A6', '#D946EF', '#0EA5E9', '#FBBF24', '#A78BFA',
 ]
 
+let _colorResolver: ((category: string, index: number) => string) | null = null
+
+export function registerCategoryColorResolver(
+  resolver: (category: string, index: number) => string,
+) {
+  _colorResolver = resolver
+}
+
 export function getCategoryColor(category: string, index: number): string {
+  if (_colorResolver) return _colorResolver(category, index)
   return CATEGORY_COLORS[category] ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length]
 }
 

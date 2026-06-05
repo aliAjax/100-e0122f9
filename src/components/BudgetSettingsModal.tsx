@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { X, Plus, Trash2, Calculator } from 'lucide-react'
 import { useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
+import { useCategoryStore } from '@/store/useCategoryStore'
 import { getCategoryColor } from '@/types'
 
 interface Props {
@@ -14,6 +15,7 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
   const budgets = useBudgetStore((s) => s.budgets)
   const setBudget = useBudgetStore((s) => s.setBudget)
   const removeBudget = useBudgetStore((s) => s.removeBudget)
+  const addCategoryToStore = useCategoryStore((s) => s.addCategory)
 
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [autoFocusCategory, setAutoFocusCategory] = useState<string | null>(null)
@@ -141,6 +143,7 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
   const handleAddCategory = () => {
     const trimmed = newCategory.trim()
     if (trimmed && !allCategories.includes(trimmed)) {
+      addCategoryToStore(trimmed)
       setNewCategory('')
       setDrafts((prev) => ({ ...prev, [trimmed]: '' }))
       setAutoFocusCategory(trimmed)

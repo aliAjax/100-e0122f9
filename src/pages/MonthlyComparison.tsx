@@ -338,7 +338,8 @@ export default function MonthlyComparison() {
           let result = `<b>${params[0]?.name || ''}日</b>`
           params.forEach((p) => {
             if (p.value !== 0) {
-              result += `<br/>${p.seriesName}：¥${Math.abs(p.value).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+              const sign = p.value > 0 ? '' : '-'
+              result += `<br/>${p.seriesName}：${sign}¥${Math.abs(p.value).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
             }
           })
           return result
@@ -428,7 +429,8 @@ export default function MonthlyComparison() {
         formatter: (params: Array<{ name: string; value: number; seriesName: string }>) => {
           let result = `<b>${params[0]?.name || ''}</b>`
           params.forEach((p) => {
-            result += `<br/>${p.seriesName}：¥${Math.abs(p.value).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+            const sign = p.value >= 0 ? '' : '-'
+            result += `<br/>${p.seriesName}：${sign}¥${Math.abs(p.value).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
           })
           return result
         },
@@ -465,21 +467,25 @@ export default function MonthlyComparison() {
         {
           name: label1,
           type: 'bar' as const,
-          data: categories.map((c) => c.month1Amount),
-          itemStyle: {
-            color: chartColor1,
-            borderRadius: [4, 4, 0, 0],
-          },
+          data: categories.map((c) => ({
+            value: c.month1Amount,
+            itemStyle: {
+              color: chartColor1,
+              borderRadius: c.month1Amount >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4],
+            },
+          })),
           barWidth: '30%',
         },
         {
           name: label2,
           type: 'bar' as const,
-          data: categories.map((c) => c.month2Amount),
-          itemStyle: {
-            color: chartColor2,
-            borderRadius: [4, 4, 0, 0],
-          },
+          data: categories.map((c) => ({
+            value: c.month2Amount,
+            itemStyle: {
+              color: chartColor2,
+              borderRadius: c.month2Amount >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4],
+            },
+          })),
           barWidth: '30%',
         },
       ],
@@ -609,7 +615,7 @@ export default function MonthlyComparison() {
                     <div>
                       <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">{label1} {typeLabel}</p>
                       <p className="mt-1 font-mono text-2xl font-semibold text-slate-100">
-                        ¥{formatCurrency(month1Total)}
+                        {month1Total >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(month1Total))}
                       </p>
                     </div>
                     <div className="rounded-xl bg-emerald-500/15 p-3">
@@ -624,7 +630,7 @@ export default function MonthlyComparison() {
                     <div>
                       <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">{label2} {typeLabel}</p>
                       <p className="mt-1 font-mono text-2xl font-semibold text-slate-100">
-                        ¥{formatCurrency(month2Total)}
+                        {month2Total >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(month2Total))}
                       </p>
                     </div>
                     <div className="rounded-xl bg-blue-500/15 p-3">
@@ -639,7 +645,7 @@ export default function MonthlyComparison() {
                     <div>
                       <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">{typeLabel}变化</p>
                       <p className={`mt-1 font-mono text-2xl font-semibold ${totalChange >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {totalChange >= 0 ? '+' : ''}¥{formatCurrency(Math.abs(totalChange))}
+                        {totalChange >= 0 ? '+' : '-'}¥{formatCurrency(Math.abs(totalChange))}
                       </p>
                     </div>
                     <div className={`rounded-xl p-3 ${totalChange >= 0 ? 'bg-red-500/15' : 'bg-emerald-500/15'}`}>
@@ -668,7 +674,7 @@ export default function MonthlyComparison() {
                         <div>
                           <p className="text-lg font-semibold text-slate-100">{topIncreased.category}</p>
                           <p className="mt-1 font-mono text-sm text-slate-400">
-                            ¥{formatCurrency(topIncreased.month1Amount)} → ¥{formatCurrency(topIncreased.month2Amount)}
+                            {topIncreased.month1Amount >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(topIncreased.month1Amount))} → {topIncreased.month2Amount >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(topIncreased.month2Amount))}
                           </p>
                         </div>
                         <div className="text-right">
@@ -692,7 +698,7 @@ export default function MonthlyComparison() {
                         <div>
                           <p className="text-lg font-semibold text-slate-100">{topDecreased.category}</p>
                           <p className="mt-1 font-mono text-sm text-slate-400">
-                            ¥{formatCurrency(topDecreased.month1Amount)} → ¥{formatCurrency(topDecreased.month2Amount)}
+                            {topDecreased.month1Amount >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(topDecreased.month1Amount))} → {topDecreased.month2Amount >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(topDecreased.month2Amount))}
                           </p>
                         </div>
                         <div className="text-right">
@@ -745,11 +751,11 @@ export default function MonthlyComparison() {
                             </div>
                             <div className="text-right">
                               <p className="font-mono text-xs font-medium text-slate-200">
-                                ¥{formatCurrency(Math.abs(m.month2Amount))}
+                                {m.month2Amount >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(m.month2Amount))}
                               </p>
                               <p className={`flex items-center justify-end gap-1 text-[10px] ${color}`}>
                                 {isIncrease ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                                {isIncrease ? '+' : ''}
+                                {isIncrease ? '+' : '-'}
                                 {formatCurrency(Math.abs(m.change))}
                               </p>
                             </div>

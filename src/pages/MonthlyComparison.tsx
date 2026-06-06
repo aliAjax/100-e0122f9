@@ -736,8 +736,10 @@ export default function MonthlyComparison() {
                   <div className="max-h-[360px] overflow-y-auto px-5 py-3">
                     <div className="flex flex-col gap-1">
                       {merchantChanges.map((m, index) => {
+                        const isNeutral = Math.abs(m.change) < 0.005
                         const isIncrease = m.change > 0
-                        const color = isIncrease ? 'text-red-400' : 'text-emerald-400'
+                        const color = isNeutral ? 'text-slate-500' : isIncrease ? 'text-red-400' : 'text-emerald-400'
+                        const changePrefix = isNeutral ? '' : isIncrease ? '+' : '-'
                         return (
                           <div
                             key={m.merchant}
@@ -754,9 +756,9 @@ export default function MonthlyComparison() {
                                 {m.month2Amount >= 0 ? '' : '-'}¥{formatCurrency(Math.abs(m.month2Amount))}
                               </p>
                               <p className={`flex items-center justify-end gap-1 text-[10px] ${color}`}>
-                                {isIncrease ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                                {isIncrease ? '+' : '-'}
-                                {formatCurrency(Math.abs(m.change))}
+                                {isNeutral ? <Minus className="h-3 w-3" /> : isIncrease ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                                {changePrefix}
+                                {formatCurrency(isNeutral ? 0 : Math.abs(m.change))}
                               </p>
                             </div>
                           </div>

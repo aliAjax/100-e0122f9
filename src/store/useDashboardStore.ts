@@ -1,244 +1,59 @@
 import { create } from 'zustand'
-import type { Transaction, FilterState, Bill, TransactionType, SavedView } from '@/types'
-import { CATEGORY_LIST } from '@/types'
 import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
-import { parseRows, detectDuplicates } from '@/utils/csvParser'
-import { applyCategoryRules, applyCategoryRulesWithManualPreserve } from '@/utils/categoryRuleMatcher'
-import { useCategoryRuleStore } from './useCategoryRuleStore'
-import { useCategoryStore } from './useCategoryStore'
-import type { MergeAnalysisResult, BudgetMergeResult } from '@/utils/mergeAnalysis'
-import { analyzeMergeDuplicates, analyzeBudgetConflicts, validateMergeInputs } from '@/utils/mergeAnalysis'
-import { useBudgetStore } from './useBudgetStore'
+import type { DashboardStore } from './dashboard/types'
+import { loadBills, loadCurrentBillId, createEmptyFilter } from './dashboard/persistence'
 import {
-  saveAllBillsToIndexedDB,
-  loadAllBillsFromIndexedDB,
-  deleteBillFromIndexedDB,
-} from '@/utils/storage'
+  createBill,
+  mergeToCurrentBill,
+  switchBill,
+  renameBill,
+  deleteBill,
+  setCurrentBillTransactions,
+  applyRulesToCurrentBill,
+  applyRulesToAllBills,
+  updateTransactionCategory,
+  setFilter,
+  clearFilter,
+  clearData,
+} from './dashboard/billOperations'
+import {
+  saveView,
+  switchView,
+  renameView,
+  deleteView,
+} from './dashboard/viewOperations'
+import {
+  confirmPreview,
+  confirmPreviewMerge,
+  confirmReconciliation,
+} from './dashboard/importConfirm'
+import {
+  toggleMergeBill,
+  enterMergeMode,
+  exitMergeMode,
+  setMergeFilter,
+  clearMergeFilter,
+  setMergeDedupeEnabled,
+  refreshMergeAnalysis,
+} from './dashboard/mergeOperations'
+import {
+  EMPTY_TRANSACTIONS,
+  EMPTY_FILTER,
+  EMPTY_VIEWS,
+  getCurrentBill,
+  getCurrentTransactions,
+  getCurrentFilter,
+  getDataLoaded,
+  getMergedTransactions,
+  getMergedFilter,
+  getMergeDataLoaded,
+  getEffectiveTransactions,
+  getEffectiveFilter,
+  getEffectiveDataLoaded,
+} from './dashboard/selectors'
+import type { Transaction, Bill, FilterState, SavedView } from '@/types'
 
-const STORAGE_KEY_BILLS = 'spendlens_bills'
-const STORAGE_KEY_CURRENT = 'spendlens_current_bill'
-const LEGACY_STORAGE_KEY = 'spendlens_transactions'
-const SMALL_BILL_THRESHOLD = 1000
-
-function generateId(): string {
-  return `bill_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-}
-
-function createEmptyFilter(): FilterState {
-  return {
-    selectedCategory: null,
-    selectedMonth: null,
-    selectedDate: null,
-    selectedMerchant: null,
-    selectedType: 'expense',
-    searchText: '',
-    amountMin: null,
-    amountMax: null,
-  }
-}
-
-function normalizeBill(bill: Bill): Bill {
-  return {
-    ...bill,
-    filter: {
-      ...createEmptyFilter(),
-      ...bill.filter,
-    },
-    savedViews: bill.savedViews ?? [],
-    transactions: bill.transactions.map((t) => ({
-      ...t,
-      type: ((t as { type?: string }).type || 'expense') as TransactionType,
-    })),
-  }
-}
-
-function isSmallBill(bill: Bill): boolean {
-  return bill.transactions.length <= SMALL_BILL_THRESHOLD
-}
-
-function hasLargeBills(bills: Bill[]): boolean {
-  return bills.some((b) => !isSmallBill(b))
-}
-
-function mergeStoredBills(localBills: Bill[], indexedBills: Bill[]): Bill[] {
-  if (localBills.length === 0) return indexedBills
-  if (indexedBills.length === 0) return localBills
-
-  const indexedById = new Map(indexedBills.map((bill) => [bill.id, bill]))
-  return localBills.map((bill) => {
-    const indexed = indexedById.get(bill.id)
-    if (!indexed) return bill
-    if (bill.transactions.length > 0) return bill
-    return {
-      ...indexed,
-      name: bill.name,
-      filter: bill.filter,
-      savedViews: bill.savedViews,
-      createdAt: bill.createdAt,
-    }
-  })
-}
-
-async function loadBills(): Promise<Bill[]> {
-  let localBills: Bill[] = []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_BILLS)
-    if (raw) {
-      const bills = JSON.parse(raw) as Bill[]
-      if (bills.length > 0) {
-        localBills = bills.map(normalizeBill)
-      }
-    }
-  } catch {
-    // fall through
-  }
-
-  try {
-    const idbBills = await loadAllBillsFromIndexedDB()
-    if (idbBills.length > 0) {
-      return mergeStoredBills(localBills, idbBills.map(normalizeBill))
-    }
-  } catch {
-    // fall through
-  }
-
-  if (localBills.length > 0) return localBills
-
-  try {
-    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)
-    if (legacyRaw) {
-      const transactions = JSON.parse(legacyRaw) as Transaction[]
-      if (transactions.length > 0) {
-        const migratedTransactions = transactions.map((t) => ({
-          ...t,
-          type: ((t as { type?: string }).type || 'expense') as TransactionType,
-        }))
-        const legacyBill: Bill = {
-          id: generateId(),
-          name: '默认账单',
-          transactions: migratedTransactions,
-          filter: createEmptyFilter(),
-          savedViews: [],
-          createdAt: Date.now(),
-        }
-        const bills = [legacyBill]
-        void saveBills(bills)
-        saveCurrentBillId(legacyBill.id)
-        localStorage.removeItem(LEGACY_STORAGE_KEY)
-        return bills
-      }
-    }
-  } catch {
-    // fall through
-  }
-  return []
-}
-
-async function saveBills(bills: Bill[]): Promise<void> {
-  if (hasLargeBills(bills)) {
-    try {
-      await saveAllBillsToIndexedDB(bills)
-      const metaBills = bills.map((b) => ({ ...b, transactions: [] }))
-      localStorage.setItem(STORAGE_KEY_BILLS, JSON.stringify(metaBills))
-      return
-    } catch (e) {
-      console.warn('Failed to save bills to IndexedDB:', e)
-    }
-  }
-
-  try {
-    const serialized = JSON.stringify(bills)
-    localStorage.setItem(STORAGE_KEY_BILLS, serialized)
-  } catch (e) {
-    console.warn('Failed to save bills to localStorage:', e)
-    try {
-      await saveAllBillsToIndexedDB(bills)
-    } catch (e2) {
-      console.warn('Also failed to save to IndexedDB:', e2)
-    }
-  }
-}
-
-function loadCurrentBillId(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY_CURRENT)
-  } catch {
-    return null
-  }
-}
-
-function saveCurrentBillId(id: string | null) {
-  if (id) {
-    localStorage.setItem(STORAGE_KEY_CURRENT, id)
-  } else {
-    localStorage.removeItem(STORAGE_KEY_CURRENT)
-  }
-}
-
-type ReconciliationMode = 'create' | 'merge'
-
-interface DashboardStore {
-  bills: Bill[]
-  currentBillId: string | null
-  previewResult: CSVPreviewResult | null
-  pendingBillName: string | null
-  mergeMode: boolean
-  selectedBillIdsForMerge: string[]
-  mergeFilter: FilterState
-  mergeDedupeEnabled: boolean
-  mergeAnalysisResult: MergeAnalysisResult | null
-  budgetMergeResult: BudgetMergeResult | null
-  isLoading: boolean
-  initialize: () => Promise<void>
-  createBill: (name: string, transactions: Transaction[]) => void
-  mergeToCurrentBill: (transactions: Transaction[]) => void
-  switchBill: (billId: string) => void
-  renameBill: (billId: string, name: string) => void
-  deleteBill: (billId: string) => void
-  setCurrentBillTransactions: (transactions: Transaction[]) => void
-  applyRulesToCurrentBill: () => { matchedCount: number; unchangedCount: number; manualSkippedCount: number }
-  applyRulesToAllBills: () => { totalMatched: number; totalUnchanged: number; totalManualSkipped: number; billsAffected: number }
-  setFilter: (filter: Partial<FilterState>) => void
-  clearFilter: () => void
-  clearData: () => void
-  setPreviewResult: (result: CSVPreviewResult | null) => void
-  setPendingBillName: (name: string | null) => void
-  confirmPreview: (billName: string, customMappings?: MappedColumns) => void
-  confirmPreviewMerge: (customMappings?: MappedColumns) => void
-  confirmReconciliation: (billName: string, transactions: Transaction[], mode: ReconciliationMode) => void
-  saveView: (name: string) => void
-  switchView: (viewId: string) => void
-  renameView: (viewId: string, name: string) => void
-  deleteView: (viewId: string) => void
-  updateTransactionCategory: (transactionId: string, category: string, isManual?: boolean) => void
-  toggleMergeBill: (billId: string) => void
-  enterMergeMode: () => void
-  exitMergeMode: () => void
-  setMergeFilter: (filter: Partial<FilterState>) => void
-  clearMergeFilter: () => void
-  setMergeDedupeEnabled: (enabled: boolean) => void
-  refreshMergeAnalysis: () => void
-}
-
-export const EMPTY_TRANSACTIONS: Transaction[] = []
-const EMPTY_FILTER: FilterState = createEmptyFilter()
-const EMPTY_VIEWS: SavedView[] = []
-
-function getCurrentBill(state: DashboardStore): Bill | undefined {
-  return state.bills.find((b) => b.id === state.currentBillId)
-}
-
-function getCurrentTransactions(state: DashboardStore): Transaction[] {
-  return getCurrentBill(state)?.transactions ?? EMPTY_TRANSACTIONS
-}
-
-function getCurrentFilter(state: DashboardStore): FilterState {
-  return getCurrentBill(state)?.filter ?? EMPTY_FILTER
-}
-
-function getDataLoaded(state: DashboardStore): boolean {
-  return (getCurrentBill(state)?.transactions.length ?? 0) > 0
-}
+export { EMPTY_TRANSACTIONS }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
   bills: [],
@@ -258,402 +73,39 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ bills, isLoading: false })
   },
 
-  createBill: (name, transactions) => {
-    const newBill: Bill = {
-      id: generateId(),
-      name: name.trim() || '未命名账单',
-      transactions,
-      filter: createEmptyFilter(),
-      savedViews: [],
-      createdAt: Date.now(),
-    }
-    set((state) => {
-      const bills = [...state.bills, newBill]
-      void saveBills(bills)
-      saveCurrentBillId(newBill.id)
-      return {
-        bills,
-        currentBillId: newBill.id,
-        previewResult: null,
-        pendingBillName: null,
-      }
-    })
-  },
-
-  mergeToCurrentBill: (transactions) => {
-    set((state) => {
-      const currentBill = getCurrentBill(state)
-      if (!currentBill) return state
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId
-          ? { ...b, transactions: [...b.transactions, ...transactions] }
-          : b,
-      )
-      void saveBills(bills)
-      return { bills, previewResult: null, pendingBillName: null }
-    })
-  },
-
-  switchBill: (billId) => {
-    const { bills } = get()
-    const bill = bills.find((b) => b.id === billId)
-    if (!bill) return
-    saveCurrentBillId(billId)
-    set({ currentBillId: billId })
-  },
-
-  renameBill: (billId, name) => {
-    set((state) => {
-      const bills = state.bills.map((b) =>
-        b.id === billId ? { ...b, name: name.trim() || '未命名账单' } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    })
-  },
-
-  deleteBill: (billId) => {
-    void deleteBillFromIndexedDB(billId)
-    set((state) => {
-      const bills = state.bills.filter((b) => b.id !== billId)
-      void saveBills(bills)
-      let currentBillId = state.currentBillId
-      if (state.currentBillId === billId) {
-        currentBillId = bills.length > 0 ? bills[0].id : null
-        saveCurrentBillId(currentBillId)
-      }
-      return { bills, currentBillId }
-    })
-  },
-
-  setCurrentBillTransactions: (transactions) => {
-    set((state) => {
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId ? { ...b, transactions } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    })
-  },
-
-  applyRulesToCurrentBill: () => {
-    const rules = useCategoryRuleStore.getState().rules
-    let result = { matchedCount: 0, unchangedCount: 0, manualSkippedCount: 0 }
-    set((state) => {
-      const currentBill = getCurrentBill(state)
-      if (!currentBill) return state
-      const applyResult = applyCategoryRulesWithManualPreserve(currentBill.transactions, rules)
-      result = applyResult
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId ? { ...b, transactions: applyResult.transactions } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    })
-    return result
-  },
-
-  applyRulesToAllBills: () => {
-    const rules = useCategoryRuleStore.getState().rules
-    let totalMatched = 0
-    let totalUnchanged = 0
-    let totalManualSkipped = 0
-    let billsAffected = 0
-    set((state) => {
-      const bills = state.bills.map((bill) => {
-        const applyResult = applyCategoryRulesWithManualPreserve(bill.transactions, rules)
-        if (applyResult.matchedCount > 0) {
-          billsAffected++
-        }
-        totalMatched += applyResult.matchedCount
-        totalUnchanged += applyResult.unchangedCount
-        totalManualSkipped += applyResult.manualSkippedCount
-        return { ...bill, transactions: applyResult.transactions }
-      })
-      void saveBills(bills)
-      return { bills }
-    })
-    return { totalMatched, totalUnchanged, totalManualSkipped, billsAffected }
-  },
-
-  updateTransactionCategory: (transactionId, category, isManual = true) => {
-    set((state) => {
-      const bills = state.bills.map((bill) => ({
-        ...bill,
-        transactions: bill.transactions.map((tx) =>
-          tx.id === transactionId
-            ? { ...tx, category, isManualCategory: isManual }
-            : tx,
-        ),
-      }))
-      void saveBills(bills)
-      return { bills }
-    })
-  },
-
-  setFilter: (partial) =>
-    set((state) => {
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId ? { ...b, filter: { ...b.filter, ...partial } } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    }),
-
-  clearFilter: () =>
-    set((state) => {
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId ? { ...b, filter: createEmptyFilter() } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    }),
-
-  clearData: () => {
-    set((state) => {
-      const bills = state.bills.filter((b) => b.id !== state.currentBillId)
-      void saveBills(bills)
-      const currentBillId = bills.length > 0 ? bills[0].id : null
-      saveCurrentBillId(currentBillId)
-      return { bills, currentBillId, previewResult: null }
-    })
-  },
+  createBill: (name, transactions) => createBill(set, get, name, transactions),
+  mergeToCurrentBill: (transactions) => mergeToCurrentBill(set, get, transactions),
+  switchBill: (billId) => switchBill(set, get, billId),
+  renameBill: (billId, name) => renameBill(set, get, billId, name),
+  deleteBill: (billId) => deleteBill(set, get, billId),
+  setCurrentBillTransactions: (transactions) => setCurrentBillTransactions(set, get, transactions),
+  applyRulesToCurrentBill: () => applyRulesToCurrentBill(set, get),
+  applyRulesToAllBills: () => applyRulesToAllBills(set, get),
+  updateTransactionCategory: (transactionId, category, isManual?) =>
+    updateTransactionCategory(set, get, transactionId, category, isManual),
+  setFilter: (partial) => setFilter(set, get, partial),
+  clearFilter: () => clearFilter(set, get),
+  clearData: () => clearData(set, get),
 
   setPreviewResult: (result) => set({ previewResult: result }),
-
   setPendingBillName: (name) => set({ pendingBillName: name }),
+  confirmPreview: (billName, customMappings?) => confirmPreview(set, get, billName, customMappings),
+  confirmPreviewMerge: (customMappings?) => confirmPreviewMerge(set, get, customMappings),
+  confirmReconciliation: (billName, transactions, mode) =>
+    confirmReconciliation(set, get, billName, transactions, mode),
 
-  saveView: (name) => {
-    set((state) => {
-      const bill = getCurrentBill(state)
-      if (!bill) return state
-      const newView: SavedView = {
-        id: generateId(),
-        name: name.trim() || '未命名视图',
-        filter: { ...bill.filter },
-        createdAt: Date.now(),
-      }
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId ? { ...b, savedViews: [...b.savedViews, newView] } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    })
-  },
+  saveView: (name) => saveView(set, get, name),
+  switchView: (viewId) => switchView(set, get, viewId),
+  renameView: (viewId, name) => renameView(set, get, viewId, name),
+  deleteView: (viewId) => deleteView(set, get, viewId),
 
-  switchView: (viewId) => {
-    set((state) => {
-      const bill = getCurrentBill(state)
-      if (!bill) return state
-      const view = bill.savedViews.find((v) => v.id === viewId)
-      if (!view) return state
-      const bills = state.bills.map((b) =>
-        b.id === state.currentBillId ? { ...b, filter: { ...view.filter } } : b,
-      )
-      void saveBills(bills)
-      return { bills }
-    })
-  },
-
-  renameView: (viewId, name) => {
-    set((state) => {
-      const bills = state.bills.map((b) => {
-        if (b.id !== state.currentBillId) return b
-        return {
-          ...b,
-          savedViews: b.savedViews.map((v) =>
-            v.id === viewId ? { ...v, name: name.trim() || '未命名视图' } : v,
-          ),
-        }
-      })
-      void saveBills(bills)
-      return { bills }
-    })
-  },
-
-  deleteView: (viewId) => {
-    set((state) => {
-      const bills = state.bills.map((b) => {
-        if (b.id !== state.currentBillId) return b
-        return {
-          ...b,
-          savedViews: b.savedViews.filter((v) => v.id !== viewId),
-        }
-      })
-      void saveBills(bills)
-      return { bills }
-    })
-  },
-
-  confirmPreview: (billName, customMappings) => {
-    const { previewResult } = get()
-    if (!previewResult) {
-      set({ previewResult: null })
-      return
-    }
-
-    let transactions = previewResult.allTransactions
-
-    if (customMappings) {
-      const { date, category, merchant, amount, type } = customMappings
-      if (!date || !amount) {
-        set({ previewResult: null })
-        return
-      }
-      const { transactions: parsedTxs } = parseRows(
-        previewResult.rawRows,
-        date,
-        category,
-        merchant,
-        amount,
-        type,
-      )
-      transactions = parsedTxs
-    }
-
-    if (transactions.length === 0) {
-      set({ previewResult: null })
-      return
-    }
-
-    const rules = useCategoryRuleStore.getState().rules
-    const { transactions: txs } = applyCategoryRules(transactions, rules, true)
-    get().createBill(billName, txs)
-  },
-
-  confirmPreviewMerge: (customMappings) => {
-    const { previewResult, bills, currentBillId } = get()
-    if (!previewResult) {
-      set({ previewResult: null })
-      return
-    }
-
-    let transactions = previewResult.allTransactions
-
-    if (customMappings) {
-      const { date, category, merchant, amount, type } = customMappings
-      if (!date || !amount) {
-        set({ previewResult: null })
-        return
-      }
-      const { transactions: parsedTxs } = parseRows(
-        previewResult.rawRows,
-        date,
-        category,
-        merchant,
-        amount,
-        type,
-      )
-      transactions = parsedTxs
-    }
-
-    if (transactions.length === 0) {
-      set({ previewResult: null })
-      return
-    }
-
-    const rules = useCategoryRuleStore.getState().rules
-    const { transactions: txs } = applyCategoryRules(transactions, rules, true)
-
-    const currentBill = bills.find((b) => b.id === currentBillId)
-    if (currentBill) {
-      const { duplicateIds } = detectDuplicates(txs, currentBill.transactions)
-      const nonDuplicate = txs.filter((t) => !duplicateIds.has(t.id))
-      get().mergeToCurrentBill(nonDuplicate)
-    } else {
-      set({ previewResult: null, pendingBillName: null })
-    }
-  },
-
-  confirmReconciliation: (billName, transactions, mode) => {
-    if (transactions.length === 0) {
-      set({ previewResult: null, pendingBillName: null })
-      return
-    }
-
-    const categoryStore = useCategoryStore.getState()
-    const existingCategoryNames = new Set(categoryStore.getCategoryNames())
-    const defaultCategories = new Set(CATEGORY_LIST)
-
-    for (const tx of transactions) {
-      const category = tx.category
-      if (category && category !== '其他' && !existingCategoryNames.has(category) && !defaultCategories.has(category)) {
-        categoryStore.addCategory(category)
-        existingCategoryNames.add(category)
-      }
-    }
-
-    if (mode === 'create') {
-      get().createBill(billName, transactions)
-    } else {
-      get().mergeToCurrentBill(transactions)
-    }
-  },
-
-  toggleMergeBill: (billId) => {
-    set((state) => {
-      const selected = state.selectedBillIdsForMerge.includes(billId)
-        ? state.selectedBillIdsForMerge.filter((id) => id !== billId)
-        : [...state.selectedBillIdsForMerge, billId]
-      return { selectedBillIdsForMerge: selected }
-    })
-  },
-
-  enterMergeMode: () => {
-    set((state) => {
-      if (state.selectedBillIdsForMerge.length < 2) return state
-      const validation = validateMergeInputs(state.bills, state.selectedBillIdsForMerge)
-      if (!validation.valid) return state
-      const analysisResult = analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
-      const budget = useBudgetStore.getState().budgets
-      const budgetResult = analyzeBudgetConflicts(state.bills, state.selectedBillIdsForMerge, budget)
-      return {
-        mergeMode: true,
-        mergeAnalysisResult: analysisResult,
-        budgetMergeResult: budgetResult,
-      }
-    })
-  },
-
-  exitMergeMode: () => {
-    set({
-      mergeMode: false,
-      mergeAnalysisResult: null,
-      budgetMergeResult: null,
-    })
-  },
-
-  setMergeDedupeEnabled: (enabled) =>
-    set((state) => {
-      const analysisResult = state.mergeMode
-        ? analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
-        : null
-      return {
-        mergeDedupeEnabled: enabled,
-        mergeAnalysisResult: analysisResult,
-      }
-    }),
-
-  refreshMergeAnalysis: () => {
-    set((state) => {
-      if (!state.mergeMode) return state
-      const analysisResult = analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
-      const budget = useBudgetStore.getState().budgets
-      const budgetResult = analyzeBudgetConflicts(state.bills, state.selectedBillIdsForMerge, budget)
-      return {
-        mergeAnalysisResult: analysisResult,
-        budgetMergeResult: budgetResult,
-      }
-    })
-  },
-
-  setMergeFilter: (partial) =>
-    set((state) => ({
-      mergeFilter: { ...state.mergeFilter, ...partial },
-    })),
-
-  clearMergeFilter: () =>
-    set({ mergeFilter: createEmptyFilter() }),
+  toggleMergeBill: (billId) => toggleMergeBill(set, get, billId),
+  enterMergeMode: () => enterMergeMode(set, get),
+  exitMergeMode: () => exitMergeMode(set, get),
+  setMergeFilter: (partial) => setMergeFilter(set, get, partial),
+  clearMergeFilter: () => clearMergeFilter(set, get),
+  setMergeDedupeEnabled: (enabled) => setMergeDedupeEnabled(set, get, enabled),
+  refreshMergeAnalysis: () => refreshMergeAnalysis(set, get),
 }))
 
 export function useCurrentBill(): Bill | null {
@@ -679,23 +131,6 @@ export function useSavedViews(): SavedView[] {
   return useDashboardStore((s) => getCurrentBill(s)?.savedViews ?? EMPTY_VIEWS)
 }
 
-function getMergedTransactions(state: DashboardStore): Transaction[] {
-  if (!state.mergeMode) return EMPTY_TRANSACTIONS
-  const selectedBills = state.bills.filter((b) => state.selectedBillIdsForMerge.includes(b.id))
-  if (state.mergeDedupeEnabled && state.mergeAnalysisResult) {
-    return state.mergeAnalysisResult.uniqueTransactions as Transaction[]
-  }
-  return selectedBills.flatMap((b) => b.transactions)
-}
-
-function getMergedFilter(state: DashboardStore): FilterState {
-  return state.mergeFilter
-}
-
-function getMergeDataLoaded(state: DashboardStore): boolean {
-  return state.mergeMode && getMergedTransactions(state).length > 0
-}
-
 export function useMergeMode(): boolean {
   return useDashboardStore((s) => s.mergeMode)
 }
@@ -717,34 +152,25 @@ export function useMergeDataLoaded(): boolean {
 }
 
 export function useEffectiveTransactions(): Transaction[] {
-  return useDashboardStore((s) => {
-    if (s.mergeMode) return getMergedTransactions(s)
-    return getCurrentTransactions(s)
-  })
+  return useDashboardStore((s) => getEffectiveTransactions(s))
 }
 
 export function useEffectiveFilter(): FilterState {
-  return useDashboardStore((s) => {
-    if (s.mergeMode) return getMergedFilter(s)
-    return getCurrentFilter(s)
-  })
+  return useDashboardStore((s) => getEffectiveFilter(s))
 }
 
 export function useEffectiveDataLoaded(): boolean {
-  return useDashboardStore((s) => {
-    if (s.mergeMode) return getMergeDataLoaded(s)
-    return getDataLoaded(s)
-  })
+  return useDashboardStore((s) => getEffectiveDataLoaded(s))
 }
 
 export function useMergeDedupeEnabled(): boolean {
   return useDashboardStore((s) => s.mergeDedupeEnabled)
 }
 
-export function useMergeAnalysisResult(): MergeAnalysisResult | null {
+export function useMergeAnalysisResult() {
   return useDashboardStore((s) => s.mergeAnalysisResult)
 }
 
-export function useBudgetMergeResult(): BudgetMergeResult | null {
+export function useBudgetMergeResult() {
   return useDashboardStore((s) => s.budgetMergeResult)
 }

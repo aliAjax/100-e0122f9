@@ -3,15 +3,10 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, GitCompare, TrendingUp, TrendingDown, BarChart3, CalendarDays, ArrowUpRight, ArrowDownRight, Store, Minus, FileText } from 'lucide-react'
 import ReactECharts from 'echarts-for-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
-import {
-  fastAggregateByCategory,
-  fastAggregateByDay,
-  fastAggregateByMerchant,
-  fastSumTransactions,
-} from '@/hooks/useDataCache'
+import { getTypeAmount } from '@/hooks/useDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
-import type { Transaction, TransactionTypeFilter, Bill } from '@/types'
+import type { Transaction, TransactionTypeFilter, Bill, CategoryData, DailyData } from '@/types'
 
 const TYPE_FILTER_OPTIONS: TransactionTypeFilter[] = ['expense', 'income', 'refund', 'net']
 
@@ -31,15 +26,89 @@ interface MerchantChange {
   changePercent: number
 }
 
-function getMonthTransactionsFast(transactions: Transaction[], month: string, typeFilter: TransactionTypeFilter): Transaction[] {
-  const result: Transaction[] = []
+interface MerchantStat {
+  merchant: string
+  amount: number
+  count: number
+  avg: number
+}
+
+interface MonthSnapshot {
+  total: number
+  count: number
+  categories: CategoryData[]
+  merchants: MerchantStat[]
+  daily: DailyData[]
+}
+
+function createEmptyMonthSnapshot(): MonthSnapshot {
+  return {
+    total: 0,
+    count: 0,
+    categories: [],
+    merchants: [],
+    daily: [],
+  }
+}
+
+function aggregateMonthSnapshot(transactions: Transaction[], month: string, typeFilter: TransactionTypeFilter): MonthSnapshot {
+  const categoryMap = new Map<string, { amount: number; count: number }>()
+  const merchantMap = new Map<string, { amount: number; count: number }>()
+  const dailyMap = new Map<string, number>()
+  let total = 0
+  let count = 0
+
   for (let i = 0; i < transactions.length; i++) {
     const t = transactions[i]
     if (!t.date.startsWith(month)) continue
-    if (typeFilter !== 'net' && t.type !== typeFilter) continue
-    result.push(t)
+    const amount = getTypeAmount(t, typeFilter)
+    if (amount === 0 && typeFilter !== 'net') continue
+
+    total += amount
+    count += 1
+    dailyMap.set(t.date, (dailyMap.get(t.date) ?? 0) + amount)
+
+    const category = categoryMap.get(t.category) ?? { amount: 0, count: 0 }
+    category.amount += amount
+    category.count += 1
+    categoryMap.set(t.category, category)
+
+    if (t.merchant) {
+      const merchant = merchantMap.get(t.merchant) ?? { amount: 0, count: 0 }
+      merchant.amount += amount
+      merchant.count += 1
+      merchantMap.set(t.merchant, merchant)
+    }
   }
-  return result
+
+  const categories = Array.from(categoryMap.entries())
+    .map(([category, { amount, count: categoryCount }]) => ({
+      category,
+      amount: Math.round(amount * 100) / 100,
+      count: categoryCount,
+    }))
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+
+  const merchants = Array.from(merchantMap.entries())
+    .map(([merchant, { amount, count: merchantCount }]) => ({
+      merchant,
+      amount: Math.round(amount * 100) / 100,
+      count: merchantCount,
+      avg: Math.round((amount / merchantCount) * 100) / 100,
+    }))
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+
+  const daily = Array.from(dailyMap.entries())
+    .map(([date, amount]) => ({ date, amount: Math.round(amount * 100) / 100 }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  return {
+    total: Math.round(total * 100) / 100,
+    count,
+    categories,
+    merchants,
+    daily,
+  }
 }
 
 function EmptyState({ icon: Icon, title, description, action }: {
@@ -180,26 +249,23 @@ export default function MonthlyComparison() {
   const effectiveMonth1 = availableMonths1.includes(month1) ? month1 : (availableMonths1[0] ?? '')
   const effectiveMonth2 = availableMonths2.includes(month2) ? month2 : (availableMonths2[0] ?? '')
 
-  const month1Transactions = useMemo(() =>
-    dataLoaded && effectiveMonth1 ? getMonthTransactionsFast(transactions1, effectiveMonth1, typeFilter) : [],
+  const month1Snapshot = useMemo(() =>
+    dataLoaded && effectiveMonth1 ? aggregateMonthSnapshot(transactions1, effectiveMonth1, typeFilter) : createEmptyMonthSnapshot(),
     [dataLoaded, transactions1, effectiveMonth1, typeFilter]
   )
-  const month2Transactions = useMemo(() =>
-    dataLoaded && effectiveMonth2 ? getMonthTransactionsFast(transactions2, effectiveMonth2, typeFilter) : [],
+  const month2Snapshot = useMemo(() =>
+    dataLoaded && effectiveMonth2 ? aggregateMonthSnapshot(transactions2, effectiveMonth2, typeFilter) : createEmptyMonthSnapshot(),
     [dataLoaded, transactions2, effectiveMonth2, typeFilter]
   )
 
-  const month1Total = useMemo(() => fastSumTransactions(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Total = useMemo(() => fastSumTransactions(month2Transactions, typeFilter), [month2Transactions, typeFilter])
+  const month1Total = month1Snapshot.total
+  const month2Total = month2Snapshot.total
   const totalChange = month2Total - month1Total
   const totalChangePercent = Math.abs(month1Total) > 0.01 ? (totalChange / month1Total) * 100 : 0
 
-  const month1Categories = useMemo(() => fastAggregateByCategory(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Categories = useMemo(() => fastAggregateByCategory(month2Transactions, typeFilter), [month2Transactions, typeFilter])
-
   const categoryChanges = useMemo((): CategoryChange[] => {
     const map = new Map<string, CategoryChange>()
-    for (const c of month1Categories) {
+    for (const c of month1Snapshot.categories) {
       map.set(c.category, {
         category: c.category,
         month1Amount: c.amount,
@@ -208,7 +274,7 @@ export default function MonthlyComparison() {
         changePercent: -100,
       })
     }
-    for (const c of month2Categories) {
+    for (const c of month2Snapshot.categories) {
       const existing = map.get(c.category)
       if (existing) {
         existing.month2Amount = c.amount
@@ -227,17 +293,14 @@ export default function MonthlyComparison() {
       }
     }
     return Array.from(map.values()).sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
-  }, [month1Categories, month2Categories])
+  }, [month1Snapshot.categories, month2Snapshot.categories])
 
   const topIncreased = categoryChanges.find((c) => c.change > 0) || null
   const topDecreased = categoryChanges.find((c) => c.change < 0) || null
 
-  const month1Merchants = useMemo(() => fastAggregateByMerchant(month1Transactions, typeFilter, 100), [month1Transactions, typeFilter])
-  const month2Merchants = useMemo(() => fastAggregateByMerchant(month2Transactions, typeFilter, 100), [month2Transactions, typeFilter])
-
   const merchantChanges = useMemo((): MerchantChange[] => {
     const map = new Map<string, MerchantChange>()
-    for (const m of month1Merchants) {
+    for (const m of month1Snapshot.merchants) {
       map.set(m.merchant, {
         merchant: m.merchant,
         month1Amount: m.amount,
@@ -246,7 +309,7 @@ export default function MonthlyComparison() {
         changePercent: -100,
       })
     }
-    for (const m of month2Merchants) {
+    for (const m of month2Snapshot.merchants) {
       const existing = map.get(m.merchant)
       if (existing) {
         existing.month2Amount = m.amount
@@ -265,10 +328,7 @@ export default function MonthlyComparison() {
       }
     }
     return Array.from(map.values()).sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 10)
-  }, [month1Merchants, month2Merchants])
-
-  const month1Daily = useMemo(() => fastAggregateByDay(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Daily = useMemo(() => fastAggregateByDay(month2Transactions, typeFilter), [month2Transactions, typeFilter])
+  }, [month1Snapshot.merchants, month2Snapshot.merchants])
 
   const chartColor1 = useMemo(() => {
     if (typeFilter === 'net') return '#10B981'
@@ -292,11 +352,11 @@ export default function MonthlyComparison() {
     const allDays = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
 
     const data1 = allDays.map((day) => {
-      const found = month1Daily.find((d) => d.date.slice(8) === day)
+      const found = month1Snapshot.daily.find((d) => d.date.slice(8) === day)
       return found ? found.amount : 0
     })
     const data2 = allDays.map((day) => {
-      const found = month2Daily.find((d) => d.date.slice(8) === day)
+      const found = month2Snapshot.daily.find((d) => d.date.slice(8) === day)
       return found ? found.amount : 0
     })
 
@@ -388,7 +448,7 @@ export default function MonthlyComparison() {
         },
       ],
     }
-  }, [label1, label2, month1Daily, month2Daily, chartColor1, chartColor2])
+  }, [label1, label2, month1Snapshot.daily, month2Snapshot.daily, chartColor1, chartColor2])
 
   const categoryChartOption = useMemo(() => {
     const categories = categoryChanges.slice(0, 8)
@@ -464,7 +524,7 @@ export default function MonthlyComparison() {
     }
   }, [label1, label2, categoryChanges, chartColor1, chartColor2])
 
-  const hasData = effectiveMonth1 && effectiveMonth2 && (month1Transactions.length > 0 || month2Transactions.length > 0)
+  const hasData = effectiveMonth1 && effectiveMonth2 && (month1Snapshot.count > 0 || month2Snapshot.count > 0)
 
   if (bills.length === 0) {
     return (
@@ -594,7 +654,7 @@ export default function MonthlyComparison() {
                       <BarChart3 className="h-5 w-5 text-emerald-400" />
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">共 {month1Transactions.length} 笔交易</p>
+                  <p className="mt-2 text-xs text-slate-500">共 {month1Snapshot.count} 笔交易</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">
@@ -609,7 +669,7 @@ export default function MonthlyComparison() {
                       <BarChart3 className="h-5 w-5 text-blue-400" />
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">共 {month2Transactions.length} 笔交易</p>
+                  <p className="mt-2 text-xs text-slate-500">共 {month2Snapshot.count} 笔交易</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">

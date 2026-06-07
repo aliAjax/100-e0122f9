@@ -60,13 +60,33 @@ function hasLargeBills(bills: Bill[]): boolean {
   return bills.some((b) => !isSmallBill(b))
 }
 
+function mergeStoredBills(localBills: Bill[], indexedBills: Bill[]): Bill[] {
+  if (localBills.length === 0) return indexedBills
+  if (indexedBills.length === 0) return localBills
+
+  const indexedById = new Map(indexedBills.map((bill) => [bill.id, bill]))
+  return localBills.map((bill) => {
+    const indexed = indexedById.get(bill.id)
+    if (!indexed) return bill
+    if (bill.transactions.length > 0) return bill
+    return {
+      ...indexed,
+      name: bill.name,
+      filter: bill.filter,
+      savedViews: bill.savedViews,
+      createdAt: bill.createdAt,
+    }
+  })
+}
+
 async function loadBills(): Promise<Bill[]> {
+  let localBills: Bill[] = []
   try {
     const raw = localStorage.getItem(STORAGE_KEY_BILLS)
     if (raw) {
       const bills = JSON.parse(raw) as Bill[]
       if (bills.length > 0) {
-        return bills.map(normalizeBill)
+        localBills = bills.map(normalizeBill)
       }
     }
   } catch {
@@ -76,11 +96,13 @@ async function loadBills(): Promise<Bill[]> {
   try {
     const idbBills = await loadAllBillsFromIndexedDB()
     if (idbBills.length > 0) {
-      return idbBills.map(normalizeBill)
+      return mergeStoredBills(localBills, idbBills.map(normalizeBill))
     }
   } catch {
     // fall through
   }
+
+  if (localBills.length > 0) return localBills
 
   try {
     const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag, GitCompare, Palette } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useDashboardStore, useDataLoaded, useMergeMode, useEffectiveTransactions, useEffectiveDataLoaded, useEffectiveFilter } from '@/store/useDashboardStore'
@@ -26,8 +26,6 @@ import TransactionTypeToggle from '@/components/TransactionTypeToggle'
 import { MergeInfoPanel } from '@/components/MergeInfoPanel'
 
 export default function Home() {
-  const initialize = useDashboardStore((s) => s.initialize)
-  const isLoading = useDashboardStore((s) => s.isLoading)
   const dataLoaded = useDataLoaded()
   const effectiveDataLoaded = useEffectiveDataLoaded()
   const transactions = useEffectiveTransactions()
@@ -43,18 +41,6 @@ export default function Home() {
   const [categoryMgmtOpen, setCategoryMgmtOpen] = useState(false)
   const hasBudgets = useBudgetStore((s) => Object.keys(s.budgets).length > 0)
   const hasCategoryRules = useCategoryRuleStore((s) => s.rules.length > 0)
-
-  useEffect(() => {
-    void initialize()
-  }, [initialize])
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
-        <div className="text-slate-400">加载中...</div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0f1a]">

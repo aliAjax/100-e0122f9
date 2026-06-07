@@ -356,7 +356,6 @@ export function generateLargeSampleData(
 
   const expenseRatio = 0.75
   const incomeRatio = 0.20
-  const refundRatio = 0.05
 
   for (let i = 0; i < targetCount; i++) {
     const rand = Math.random()

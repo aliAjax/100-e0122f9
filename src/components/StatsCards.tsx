@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Wallet, TrendingUp, ArrowUpRight, CalendarDays, TrendingDown, ArrowDownRight } from 'lucide-react'
-import { useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { useDataCache, getTypeAmount } from '@/hooks/useDataCache'
+import { useEffectiveFilter } from '@/store/useDashboardStore'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
@@ -20,10 +20,9 @@ function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementTyp
 }
 
 export default function StatsCards() {
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
 
-  const { filtered, totalAmount } = useDataCache(transactions, filter)
+  const { filtered, totalAmount } = useSharedDataCache()
 
   const stats = useMemo(() => {
     const months = new Set<string>()

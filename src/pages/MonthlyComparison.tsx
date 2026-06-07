@@ -8,8 +8,6 @@ import {
   fastAggregateByDay,
   fastAggregateByMerchant,
   fastSumTransactions,
-  fastFilterByType,
-  getTypeAmount,
 } from '@/hooks/useDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_FILTER_LABELS } from '@/types'

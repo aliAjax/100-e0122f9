@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { Coins, Calendar, Tag, Store, TrendingUp } from 'lucide-react'
-import { useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { useDataCache, fastAggregateByMerchant } from '@/hooks/useDataCache'
+import { useEffectiveFilter } from '@/store/useDashboardStore'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
+import { fastAggregateByMerchant } from '@/hooks/useDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
 
@@ -21,10 +22,9 @@ function SummaryItem({ icon: Icon, label, value, sub, accent }: { icon: React.El
 }
 
 export default function AnnualSummary() {
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
 
-  const { filtered, totalAmount, monthlyData, categoryData } = useDataCache(transactions, filter)
+  const { filtered, totalAmount, monthlyData, categoryData } = useSharedDataCache()
 
   const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]
 

@@ -83,7 +83,12 @@ function loadBills(): Bill[] {
 }
 
 function saveBills(bills: Bill[]) {
-  localStorage.setItem(STORAGE_KEY_BILLS, JSON.stringify(bills))
+  try {
+    const serialized = JSON.stringify(bills)
+    localStorage.setItem(STORAGE_KEY_BILLS, serialized)
+  } catch (e) {
+    console.warn('Failed to save bills to localStorage (likely quota exceeded):', e)
+  }
 }
 
 function loadCurrentBillId(): string | null {

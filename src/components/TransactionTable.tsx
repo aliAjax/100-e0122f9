@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Search, Edit3, Check, X, PenTool, Info } from 'lucide-react'
-import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
-import { useDataCache } from '@/hooks/useDataCache'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 import type { TransactionType } from '@/types'
@@ -23,7 +23,6 @@ function parseAmountInput(value: string): number | null {
 
 export default function TransactionTable() {
   const mergeMode = useMergeMode()
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
@@ -33,7 +32,7 @@ export default function TransactionTable() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { filteredSorted } = useDataCache(transactions, filter)
+  const { filteredSorted } = useSharedDataCache()
 
   const [editingTxId, setEditingTxId] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState('')

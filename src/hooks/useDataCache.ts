@@ -232,7 +232,16 @@ export function useDataCache(transactions: Transaction[], filter: FilterState): 
   } = filter
 
   const filtered = useMemo(() => {
-    return fastApplyFilter(transactions, filter)
+    return fastApplyFilter(transactions, {
+      selectedCategory,
+      selectedMonth,
+      selectedDate,
+      selectedMerchant,
+      selectedType,
+      searchText,
+      amountMin,
+      amountMax,
+    })
   }, [
     transactions,
     selectedCategory,
@@ -313,23 +322,21 @@ export function usePartialDataCache(
     amountMax,
   } = filter
 
-  const partialFilter: FilterState = useMemo(() => ({
-    ...filter,
-    searchText: options.excludeSearch ? '' : searchText,
-    selectedMerchant: options.excludeMerchant ? null : selectedMerchant,
-    selectedCategory: options.excludeCategory ? null : selectedCategory,
-  }), [
-    filter,
-    options.excludeSearch,
-    options.excludeMerchant,
-    options.excludeCategory,
-    searchText,
-    selectedMerchant,
-    selectedCategory,
-  ])
+  const effectiveSearch = options.excludeSearch ? '' : searchText
+  const effectiveMerchant = options.excludeMerchant ? null : selectedMerchant
+  const effectiveCategory = options.excludeCategory ? null : selectedCategory
 
   const filtered = useMemo(() => {
-    return fastApplyFilter(transactions, partialFilter)
+    return fastApplyFilter(transactions, {
+      selectedCategory: effectiveCategory,
+      selectedMonth,
+      selectedDate,
+      selectedMerchant: effectiveMerchant,
+      selectedType,
+      searchText: effectiveSearch,
+      amountMin,
+      amountMax,
+    })
   }, [
     transactions,
     selectedMonth,
@@ -337,9 +344,9 @@ export function usePartialDataCache(
     selectedType,
     amountMin,
     amountMax,
-    options.excludeSearch ? '' : searchText,
-    options.excludeMerchant ? null : selectedMerchant,
-    options.excludeCategory ? null : selectedCategory,
+    effectiveSearch,
+    effectiveMerchant,
+    effectiveCategory,
   ])
 
   const monthlyData = useMemo(() => {

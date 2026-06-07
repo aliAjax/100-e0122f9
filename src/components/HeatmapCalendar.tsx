@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { useDataCache } from '@/hooks/useDataCache'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
@@ -48,14 +48,13 @@ function getHeatColor(value: number, max: number, baseColor: string): string {
 
 export default function HeatmapCalendar() {
   const mergeMode = useMergeMode()
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { dailyData, years } = useDataCache(transactions, filter)
+  const { dailyData, years } = useSharedDataCache()
 
   const dailyMap = useMemo(() => {
     const m = new Map<string, number>()

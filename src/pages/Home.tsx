@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag, GitCompare, Palette } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useDashboardStore, useDataLoaded, useMergeMode, useEffectiveTransactions, useEffectiveDataLoaded } from '@/store/useDashboardStore'
+import { useDashboardStore, useDataLoaded, useMergeMode, useEffectiveTransactions, useEffectiveDataLoaded, useEffectiveFilter } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { previewCSV } from '@/utils/csvParser'
+import { DataCacheProvider } from '@/contexts/DataCacheContext'
 import CSVUploader from '@/components/CSVUploader'
 import CSVPreviewModal from '@/components/CSVPreviewModal'
 import BudgetSettingsModal from '@/components/BudgetSettingsModal'
@@ -28,6 +29,7 @@ export default function Home() {
   const dataLoaded = useDataLoaded()
   const effectiveDataLoaded = useEffectiveDataLoaded()
   const transactions = useEffectiveTransactions()
+  const filter = useEffectiveFilter()
   const mergeMode = useMergeMode()
   const bills = useDashboardStore((s) => s.bills)
   const clearData = useDashboardStore((s) => s.clearData)
@@ -168,28 +170,30 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <SavedViews />
-              <TransactionTypeToggle />
-            </div>
-            <FilterBar />
-            <MergeInfoPanel />
-            <StatsCards />
-            <AnnualSummary />
-            <div className="grid grid-cols-5 gap-6">
-              <div className="col-span-3">
-                <TrendChart />
+          <DataCacheProvider transactions={transactions} filter={filter}>
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <SavedViews />
+                <TransactionTypeToggle />
               </div>
-              <div className="col-span-2 flex flex-col gap-6">
-                <CategoryPie />
-                <BudgetProgress />
+              <FilterBar />
+              <MergeInfoPanel />
+              <StatsCards />
+              <AnnualSummary />
+              <div className="grid grid-cols-5 gap-6">
+                <div className="col-span-3">
+                  <TrendChart />
+                </div>
+                <div className="col-span-2 flex flex-col gap-6">
+                  <CategoryPie />
+                  <BudgetProgress />
+                </div>
               </div>
+              <HeatmapCalendar />
+              <MerchantRanking />
+              <TransactionTable />
             </div>
-            <HeatmapCalendar />
-            <MerchantRanking />
-            <TransactionTable />
-          </div>
+          </DataCacheProvider>
         )}
       </main>
 

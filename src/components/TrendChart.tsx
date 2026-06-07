@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { useDataCache, usePartialDataCache, fastAggregateByMonth } from '@/hooks/useDataCache'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
+import { usePartialDataCache } from '@/hooks/useDataCache'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 export default function TrendChart() {
@@ -13,7 +14,7 @@ export default function TrendChart() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { monthlyData } = useDataCache(transactions, filter)
+  const { monthlyData } = useSharedDataCache()
 
   const { monthlyData: allMonthly } = usePartialDataCache(transactions, filter, {
     excludeCategory: true,

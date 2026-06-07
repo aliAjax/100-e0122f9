@@ -1,135 +1,93 @@
 import { describe, it, expect } from 'vitest'
-import { parseRows, findColumn } from '../csvParser'
-import type { Transaction } from '@/types'
+import { parseRows, parseCSV, previewCSV } from '../csvParser'
 
-const DATE_ALIASES = ['date', '日期', '交易日期', 'transaction_date', 'trans_date']
-const CATEGORY_ALIASES = ['category', '分类', '消费分类', '类别']
-const MERCHANT_ALIASES = ['merchant', '商户', '交易对方', 'store', '店铺', '商家', '描述', 'description']
-const AMOUNT_ALIASES = ['amount', '金额', '交易金额', 'money', 'price']
-const TYPE_ALIASES = ['type', '类型', '收支类型', '交易类型', '交易方向', 'direction']
+function csvFile(content: string): File {
+  return content as unknown as File
+}
 
-describe('csvParser - findColumn 列名自动识别', () => {
-  describe('日期列识别', () => {
-    it('应识别 date', () => {
-      expect(findColumn(['date', 'amount'], DATE_ALIASES)).toBe('date')
-    })
-    it('应识别 日期', () => {
-      expect(findColumn(['日期', '金额'], DATE_ALIASES)).toBe('日期')
-    })
-    it('应识别 交易日期', () => {
-      expect(findColumn(['交易日期', '金额'], DATE_ALIASES)).toBe('交易日期')
-    })
-    it('应识别 transaction_date', () => {
-      expect(findColumn(['transaction_date', 'amount'], DATE_ALIASES)).toBe('transaction_date')
-    })
-    it('应识别 trans_date', () => {
-      expect(findColumn(['trans_date', 'amount'], DATE_ALIASES)).toBe('trans_date')
-    })
-    it('应忽略大小写识别 DATE', () => {
-      expect(findColumn(['DATE', 'AMOUNT'], DATE_ALIASES)).toBe('DATE')
-    })
-    it('应忽略前后空格', () => {
-      expect(findColumn([' 日期 ', ' 金额 '], DATE_ALIASES)).toBe(' 日期 ')
+describe('csvParser - CSV入口列名自动识别', () => {
+  it.each([
+    ['date', 'date'],
+    ['日期', '日期'],
+    ['交易日期', '交易日期'],
+    ['transaction_date', 'transaction_date'],
+    ['trans_date', 'trans_date'],
+    [' DATE ', ' DATE '],
+  ])('previewCSV应使用真实日期别名识别%s', async (dateHeader, expected) => {
+    const result = await previewCSV(csvFile(`${dateHeader},金额\n2024-01-15,100`))
+    expect(result.mappedColumns.date).toBe(expected)
+    expect(result.allTransactions[0].date).toBe('2024-01-15')
+  })
+
+  it.each([
+    ['category', 'category'],
+    ['分类', '分类'],
+    ['消费分类', '消费分类'],
+    ['类别', '类别'],
+  ])('previewCSV应使用真实分类别名识别%s', async (categoryHeader, expected) => {
+    const result = await previewCSV(csvFile(`日期,金额,${categoryHeader}\n2024-01-15,100,餐饮`))
+    expect(result.mappedColumns.category).toBe(expected)
+    expect(result.allTransactions[0].category).toBe('餐饮')
+  })
+
+  it.each([
+    ['merchant', 'merchant'],
+    ['商户', '商户'],
+    ['交易对方', '交易对方'],
+    ['store', 'store'],
+    ['店铺', '店铺'],
+    ['商家', '商家'],
+    ['描述', '描述'],
+    ['description', 'description'],
+  ])('previewCSV应使用真实商户别名识别%s', async (merchantHeader, expected) => {
+    const result = await previewCSV(csvFile(`日期,金额,${merchantHeader}\n2024-01-15,100,肯德基`))
+    expect(result.mappedColumns.merchant).toBe(expected)
+    expect(result.allTransactions[0].merchant).toBe('肯德基')
+  })
+
+  it.each([
+    ['amount', 'amount'],
+    ['金额', '金额'],
+    ['交易金额', '交易金额'],
+    ['money', 'money'],
+    ['price', 'price'],
+    [' AMOUNT ', ' AMOUNT '],
+  ])('previewCSV应使用真实金额别名识别%s', async (amountHeader, expected) => {
+    const result = await previewCSV(csvFile(`日期,${amountHeader}\n2024-01-15,100`))
+    expect(result.mappedColumns.amount).toBe(expected)
+    expect(result.allTransactions[0].amount).toBe(100)
+  })
+
+  it.each([
+    ['type', 'type', 'income', 'income'],
+    ['类型', '类型', '收入', 'income'],
+    ['收支类型', '收支类型', '支出', 'expense'],
+    ['交易类型', '交易类型', '退款', 'refund'],
+    ['交易方向', '交易方向', '转入', 'income'],
+    ['direction', 'direction', 'refund', 'refund'],
+  ] as const)('previewCSV应使用真实类型别名识别%s', async (typeHeader, expected, rawType, expectedType) => {
+    const result = await previewCSV(csvFile(`日期,金额,${typeHeader}\n2024-01-15,100,${rawType}`))
+    expect(result.mappedColumns.type).toBe(expected)
+    expect(result.allTransactions[0].type).toBe(expectedType)
+  })
+
+  it('parseCSV应通过真实英文列名入口解析交易', async () => {
+    const transactions = await parseCSV(csvFile('date,amount,category,merchant,type\n2024-01-15,+100,工资,公司,income'))
+    expect(transactions[0]).toMatchObject({
+      date: '2024-01-15',
+      amount: 100,
+      category: '工资',
+      merchant: '公司',
+      type: 'income',
     })
   })
 
-  describe('分类列识别', () => {
-    it('应识别 category', () => {
-      expect(findColumn(['category', 'date'], CATEGORY_ALIASES)).toBe('category')
-    })
-    it('应识别 分类', () => {
-      expect(findColumn(['分类', '日期'], CATEGORY_ALIASES)).toBe('分类')
-    })
-    it('应识别 消费分类', () => {
-      expect(findColumn(['消费分类', '日期'], CATEGORY_ALIASES)).toBe('消费分类')
-    })
-    it('应识别 类别', () => {
-      expect(findColumn(['类别', '日期'], CATEGORY_ALIASES)).toBe('类别')
-    })
-  })
-
-  describe('商户列识别', () => {
-    it('应识别 merchant', () => {
-      expect(findColumn(['merchant', 'date'], MERCHANT_ALIASES)).toBe('merchant')
-    })
-    it('应识别 商户', () => {
-      expect(findColumn(['商户', '日期'], MERCHANT_ALIASES)).toBe('商户')
-    })
-    it('应识别 交易对方', () => {
-      expect(findColumn(['交易对方', '日期'], MERCHANT_ALIASES)).toBe('交易对方')
-    })
-    it('应识别 store', () => {
-      expect(findColumn(['store', 'date'], MERCHANT_ALIASES)).toBe('store')
-    })
-    it('应识别 店铺', () => {
-      expect(findColumn(['店铺', '日期'], MERCHANT_ALIASES)).toBe('店铺')
-    })
-    it('应识别 商家', () => {
-      expect(findColumn(['商家', '日期'], MERCHANT_ALIASES)).toBe('商家')
-    })
-    it('应识别 描述', () => {
-      expect(findColumn(['描述', '日期'], MERCHANT_ALIASES)).toBe('描述')
-    })
-    it('应识别 description', () => {
-      expect(findColumn(['description', 'date'], MERCHANT_ALIASES)).toBe('description')
-    })
-  })
-
-  describe('金额列识别', () => {
-    it('应识别 amount', () => {
-      expect(findColumn(['amount', 'date'], AMOUNT_ALIASES)).toBe('amount')
-    })
-    it('应识别 金额', () => {
-      expect(findColumn(['金额', '日期'], AMOUNT_ALIASES)).toBe('金额')
-    })
-    it('应识别 交易金额', () => {
-      expect(findColumn(['交易金额', '日期'], AMOUNT_ALIASES)).toBe('交易金额')
-    })
-    it('应识别 money', () => {
-      expect(findColumn(['money', 'date'], AMOUNT_ALIASES)).toBe('money')
-    })
-    it('应识别 price', () => {
-      expect(findColumn(['price', 'date'], AMOUNT_ALIASES)).toBe('price')
-    })
-  })
-
-  describe('类型列识别', () => {
-    it('应识别 type', () => {
-      expect(findColumn(['type', 'date'], TYPE_ALIASES)).toBe('type')
-    })
-    it('应识别 类型', () => {
-      expect(findColumn(['类型', '日期'], TYPE_ALIASES)).toBe('类型')
-    })
-    it('应识别 收支类型', () => {
-      expect(findColumn(['收支类型', '日期'], TYPE_ALIASES)).toBe('收支类型')
-    })
-    it('应识别 交易类型', () => {
-      expect(findColumn(['交易类型', '日期'], TYPE_ALIASES)).toBe('交易类型')
-    })
-    it('应识别 交易方向', () => {
-      expect(findColumn(['交易方向', '日期'], TYPE_ALIASES)).toBe('交易方向')
-    })
-    it('应识别 direction', () => {
-      expect(findColumn(['direction', 'date'], TYPE_ALIASES)).toBe('direction')
-    })
-  })
-
-  describe('边界情况', () => {
-    it('找不到匹配列时返回 null', () => {
-      expect(findColumn(['foo', 'bar'], DATE_ALIASES)).toBeNull()
-    })
-    it('空 headers 数组返回 null', () => {
-      expect(findColumn([], DATE_ALIASES)).toBeNull()
-    })
-    it('按别名数组优先级匹配，而非 headers 顺序', () => {
-      expect(findColumn(['日期', 'date', '交易日期'], DATE_ALIASES)).toBe('date')
-    })
-    it('别名数组中优先级高的先匹配', () => {
-      expect(findColumn(['交易日期', '日期', 'date'], DATE_ALIASES)).toBe('date')
-    })
-    it('混合大小写和空格仍能正确匹配', () => {
-      expect(findColumn(['  Transaction_Date  ', 'Amount'], DATE_ALIASES)).toBe('  Transaction_Date  ')
-    })
+  it('previewCSV找不到必要列时应返回映射失败和错误统计', async () => {
+    const result = await previewCSV(csvFile('时间,数值\n2024-01-15,100'))
+    expect(result.mappedColumns.date).toBeNull()
+    expect(result.mappedColumns.amount).toBeNull()
+    expect(result.validCount).toBe(0)
+    expect(result.invalidReasons).toContain('CSV 缺少必要列：日期(date) 和 金额(amount)')
   })
 })
 

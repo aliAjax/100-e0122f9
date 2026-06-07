@@ -44,6 +44,37 @@ function determineTransactionType(
   return 'expense'
 }
 
+export type ImportItemStatus = 'valid' | 'duplicate' | 'invalid'
+export type ImportItemAction = 'keep' | 'skip'
+
+export interface ImportReconciliationItem {
+  transaction: Transaction
+  status: ImportItemStatus
+  action: ImportItemAction
+  originalCategory: string
+  matchedRuleKeyword?: string
+  isNewCategory: boolean
+  invalidReason?: string
+  rawRow?: Record<string, string>
+}
+
+export interface CategoryImportSummary {
+  category: string
+  count: number
+  amount: number
+  isNew: boolean
+}
+
+export interface ReconciliationResult {
+  items: ImportReconciliationItem[]
+  categorySummaries: CategoryImportSummary[]
+  newCategories: string[]
+  matchedCount: number
+  unmatchedCount: number
+  keepCount: number
+  skipCount: number
+}
+
 export interface CSVPreviewResult {
   headers: string[]
   mappedColumns: MappedColumns
@@ -54,6 +85,7 @@ export interface CSVPreviewResult {
   previewRows: Transaction[]
   allTransactions: Transaction[]
   rawRows: Record<string, string>[]
+  invalidRows: Array<{ row: Record<string, string>; reason: string }>
 }
 
 function findColumn(headers: string[], aliases: string[]): string | null {
@@ -72,28 +104,35 @@ export function parseRows(
   merchantCol: string | null,
   amountCol: string,
   typeCol: string | null,
-): { transactions: Transaction[]; invalidCount: number; invalidReasons: string[] } {
+): {
+  transactions: Transaction[]
+  invalidCount: number
+  invalidReasons: string[]
+  invalidRows: Array<{ row: Record<string, string>; reason: string }>
+} {
   const transactions: Transaction[] = []
   let invalidCount = 0
   const reasonMap: Record<string, number> = {}
+  const invalidRows: Array<{ row: Record<string, string>; reason: string }> = []
 
   for (const row of rows) {
     const rawDate = (row[dateCol] ?? '').trim()
     const rawAmount = (row[amountCol] ?? '').trim()
 
+    let invalidReason: string | null = null
+
     if (!rawDate && !rawAmount) {
-      invalidCount++
-      reasonMap['日期和金额均为空'] = (reasonMap['日期和金额均为空'] ?? 0) + 1
-      continue
+      invalidReason = '日期和金额均为空'
+    } else if (!rawDate) {
+      invalidReason = '日期为空'
+    } else if (!rawAmount) {
+      invalidReason = '金额为空'
     }
-    if (!rawDate) {
+
+    if (invalidReason) {
       invalidCount++
-      reasonMap['日期为空'] = (reasonMap['日期为空'] ?? 0) + 1
-      continue
-    }
-    if (!rawAmount) {
-      invalidCount++
-      reasonMap['金额为空'] = (reasonMap['金额为空'] ?? 0) + 1
+      reasonMap[invalidReason] = (reasonMap[invalidReason] ?? 0) + 1
+      invalidRows.push({ row, reason: invalidReason })
       continue
     }
 
@@ -101,8 +140,10 @@ export function parseRows(
     const signedAmount = parseFloat(normalizedAmount.replace(/[,]/g, ''))
     const amount = Math.abs(signedAmount)
     if (isNaN(amount)) {
+      invalidReason = '金额无法解析为数字'
       invalidCount++
-      reasonMap['金额无法解析为数字'] = (reasonMap['金额无法解析为数字'] ?? 0) + 1
+      reasonMap[invalidReason] = (reasonMap[invalidReason] ?? 0) + 1
+      invalidRows.push({ row, reason: invalidReason })
       continue
     }
 
@@ -115,8 +156,10 @@ export function parseRows(
     }
     const match = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
     if (!match) {
+      invalidReason = '日期格式无法识别（需 YYYY-MM-DD）'
       invalidCount++
-      reasonMap['日期格式无法识别（需 YYYY-MM-DD）'] = (reasonMap['日期格式无法识别（需 YYYY-MM-DD）'] ?? 0) + 1
+      reasonMap[invalidReason] = (reasonMap[invalidReason] ?? 0) + 1
+      invalidRows.push({ row, reason: invalidReason })
       continue
     }
 
@@ -137,7 +180,7 @@ export function parseRows(
     ([reason, count]) => `${reason}（${count} 行）`,
   )
 
-  return { transactions, invalidCount, invalidReasons }
+  return { transactions, invalidCount, invalidReasons, invalidRows }
 }
 
 let idCounter = 0
@@ -222,11 +265,12 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
             previewRows: [],
             allTransactions: [],
             rawRows,
+            invalidRows: rawRows.map((row) => ({ row, reason: 'CSV 缺少必要列' })),
           })
           return
         }
 
-        const { transactions, invalidCount, invalidReasons } = parseRows(
+        const { transactions, invalidCount, invalidReasons, invalidRows } = parseRows(
           rawRows,
           dateCol,
           categoryCol,
@@ -252,6 +296,7 @@ export function previewCSV(file: File): Promise<CSVPreviewResult> {
           previewRows: transactions.slice(0, 10),
           allTransactions: transactions,
           rawRows,
+          invalidRows,
         })
       },
       error(err: Error) {

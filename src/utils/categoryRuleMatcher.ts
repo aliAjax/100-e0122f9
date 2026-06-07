@@ -3,7 +3,7 @@ import type { Transaction, CategoryRule } from '@/types'
 export function matchCategoryByMerchant(
   merchant: string,
   rules: CategoryRule[],
-): string | null {
+): { category: string; keyword: string } | null {
   const trimmedMerchant = merchant.trim().toLowerCase()
   if (!trimmedMerchant) return null
 
@@ -12,7 +12,7 @@ export function matchCategoryByMerchant(
     const keyword = rule.keyword.trim().toLowerCase()
     if (!keyword) continue
     if (trimmedMerchant.includes(keyword)) {
-      return rule.category
+      return { category: rule.category, keyword: rule.keyword }
     }
   }
 
@@ -32,11 +32,11 @@ export function applyCategoryRules(
   let unmatchedCount = 0
 
   const updatedTransactions = transactions.map((tx) => {
-    const matchedCategory = matchCategoryByMerchant(tx.merchant, rules)
+    const matchResult = matchCategoryByMerchant(tx.merchant, rules)
 
-    if (matchedCategory) {
+    if (matchResult) {
       matchedCount++
-      return { ...tx, category: matchedCategory }
+      return { ...tx, category: matchResult.category }
     }
 
     unmatchedCount++
@@ -66,11 +66,11 @@ export function applyCategoryRulesWithPreserve(
   let unchangedCount = 0
 
   const updatedTransactions = transactions.map((tx) => {
-    const matchedCategory = matchCategoryByMerchant(tx.merchant, rules)
+    const matchResult = matchCategoryByMerchant(tx.merchant, rules)
 
-    if (matchedCategory) {
+    if (matchResult) {
       matchedCount++
-      return { ...tx, category: matchedCategory }
+      return { ...tx, category: matchResult.category }
     }
 
     unchangedCount++
@@ -81,5 +81,53 @@ export function applyCategoryRulesWithPreserve(
     transactions: updatedTransactions,
     matchedCount,
     unchangedCount,
+  }
+}
+
+export function applyCategoryRulesWithDetails(
+  transactions: Transaction[],
+  rules: CategoryRule[],
+  existingCategories: string[],
+  fallbackToOther: boolean = true,
+): {
+  transactions: Array<Transaction & { matchedRuleKeyword?: string; isNewCategory: boolean }>
+  matchedCount: number
+  unmatchedCount: number
+  newCategories: string[]
+} {
+  let matchedCount = 0
+  let unmatchedCount = 0
+  const newCategoriesSet = new Set<string>()
+  const existingCategoriesSet = new Set(existingCategories)
+
+  const updatedTransactions = transactions.map((tx) => {
+    const matchResult = matchCategoryByMerchant(tx.merchant, rules)
+    let category = tx.category
+    let matchedRuleKeyword: string | undefined
+
+    if (matchResult) {
+      matchedCount++
+      category = matchResult.category
+      matchedRuleKeyword = matchResult.keyword
+    } else {
+      unmatchedCount++
+      if (fallbackToOther && !tx.category) {
+        category = '其他'
+      }
+    }
+
+    const isNewCategory = category && category !== '其他' && !existingCategoriesSet.has(category)
+    if (isNewCategory) {
+      newCategoriesSet.add(category)
+    }
+
+    return { ...tx, category, matchedRuleKeyword, isNewCategory }
+  })
+
+  return {
+    transactions: updatedTransactions,
+    matchedCount,
+    unmatchedCount,
+    newCategories: Array.from(newCategoriesSet),
   }
 }

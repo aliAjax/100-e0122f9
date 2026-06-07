@@ -97,6 +97,8 @@ function saveCurrentBillId(id: string | null) {
   }
 }
 
+type ReconciliationMode = 'create' | 'merge'
+
 interface DashboardStore {
   bills: Bill[]
   currentBillId: string | null
@@ -115,6 +117,7 @@ interface DashboardStore {
   setPendingBillName: (name: string | null) => void
   confirmPreview: (billName: string, customMappings?: MappedColumns) => void
   confirmPreviewMerge: (customMappings?: MappedColumns) => void
+  confirmReconciliation: (billName: string, transactions: Transaction[], mode: ReconciliationMode) => void
   saveView: (name: string) => void
   switchView: (viewId: string) => void
   renameView: (viewId: string, name: string) => void
@@ -395,6 +398,19 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().mergeToCurrentBill(nonDuplicate)
     } else {
       set({ previewResult: null, pendingBillName: null })
+    }
+  },
+
+  confirmReconciliation: (billName, transactions, mode) => {
+    if (transactions.length === 0) {
+      set({ previewResult: null, pendingBillName: null })
+      return
+    }
+
+    if (mode === 'create') {
+      get().createBill(billName, transactions)
+    } else {
+      get().mergeToCurrentBill(transactions)
     }
   },
 }))

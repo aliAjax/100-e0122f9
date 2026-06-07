@@ -329,3 +329,80 @@ export function generateSampleData(): Transaction[] {
 
   return transactions
 }
+
+export function generateLargeSampleData(
+  targetCount: number = 50000,
+  yearRange: [number, number] = [2022, 2024]
+): Transaction[] {
+  const transactions: Transaction[] = []
+  const [startYear, endYear] = yearRange
+  let idCounter = 0
+
+  const allCategories = CATEGORY_CONFIGS.map(c => c.category)
+  const allMerchantsByCategory: Record<string, string[]> = {}
+  CATEGORY_CONFIGS.forEach(c => {
+    allMerchantsByCategory[c.category] = c.merchants
+  })
+  const allIncomeCategories = INCOME_CONFIGS.map(c => c.category)
+  const allIncomeMerchantsByCategory: Record<string, string[]> = {}
+  INCOME_CONFIGS.forEach(c => {
+    allIncomeMerchantsByCategory[c.category] = c.merchants
+  })
+
+  const monthWeights = [
+    1.0, 0.85, 0.95, 0.9, 0.88, 1.1,
+    1.05, 1.15, 0.92, 0.98, 1.4, 1.6,
+  ]
+
+  const expenseRatio = 0.75
+  const incomeRatio = 0.20
+  const refundRatio = 0.05
+
+  for (let i = 0; i < targetCount; i++) {
+    const rand = Math.random()
+    let type: TransactionType
+    let category: string
+    let merchant: string
+    let amount: number
+
+    const year = randomInt(startYear, endYear)
+    const month = randomInt(1, 12)
+    const day = randomInt(1, getDaysInMonth(year, month))
+    const date = formatDate(year, month, day)
+    const monthWeight = monthWeights[month - 1]
+
+    if (rand < expenseRatio) {
+      type = 'expense'
+      category = randomPick(allCategories)
+      merchant = randomPick(allMerchantsByCategory[category])
+      const config = CATEGORY_CONFIGS.find(c => c.category === category)!
+      const baseAmount = randomFloat(config.amountRange[0], config.amountRange[1])
+      amount = Math.round(baseAmount * monthWeight * 100) / 100
+    } else if (rand < expenseRatio + incomeRatio) {
+      type = 'income'
+      category = randomPick(allIncomeCategories)
+      merchant = randomPick(allIncomeMerchantsByCategory[category])
+      const config = INCOME_CONFIGS.find(c => c.category === category)!
+      const baseAmount = randomFloat(config.amountRange[0], config.amountRange[1])
+      amount = Math.round(baseAmount * 100) / 100
+    } else {
+      type = 'refund'
+      category = '其他'
+      merchant = randomPick(REFUND_MERCHANTS)
+      amount = Math.round(randomFloat(50, 500) * 100) / 100
+    }
+
+    transactions.push({
+      id: `large_${Date.now()}_${idCounter++}`,
+      date,
+      category,
+      merchant,
+      amount,
+      type,
+    })
+  }
+
+  transactions.sort((a, b) => a.date.localeCompare(b.date))
+
+  return transactions
+}

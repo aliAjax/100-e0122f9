@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { aggregateByDay, applyFilter, formatCurrency } from '@/utils/dataAggregation'
+import { useDataCache } from '@/hooks/useDataCache'
+import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 const CELL_SIZE = 14
@@ -31,7 +32,7 @@ function getMonday(d: Date) {
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
-    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    ? { r: parseInt(result[1], 10), g: parseInt(result[2], 10), b: parseInt(result[3], 10) }
     : { r: 16, g: 185, b: 129 }
 }
 
@@ -54,20 +55,15 @@ export default function HeatmapCalendar() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const [tooltip, setTooltip] = useState<{ date: string; amount: number; x: number; y: number } | null>(null)
+  const { dailyData, years } = useDataCache(transactions, filter)
 
-  const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
-  const dailyData = useMemo(() => aggregateByDay(filtered, filter.selectedType), [filtered, filter.selectedType])
   const dailyMap = useMemo(() => {
     const m = new Map<string, number>()
     for (const d of dailyData) m.set(d.date, d.amount)
     return m
   }, [dailyData])
 
-  const years = useMemo(() => {
-    const all = new Set(transactions.map((t) => parseInt(t.date.slice(0, 4), 10)))
-    return Array.from(all).sort()
-  }, [transactions])
+  const [tooltip, setTooltip] = useState<{ date: string; amount: number; x: number; y: number } | null>(null)
 
   const year = years.length > 0 ? years[years.length - 1] : new Date().getFullYear()
 

@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { aggregateByCategory, applyFilter, formatCurrency } from '@/utils/dataAggregation'
+import { usePartialDataCache } from '@/hooks/useDataCache'
+import { formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
 
 export default function CategoryPie() {
@@ -13,11 +14,12 @@ export default function CategoryPie() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const unfiltered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: null, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }),
-    [transactions, filter.selectedMonth, filter.selectedDate, filter.selectedType],
-  )
-  const categoryData = useMemo(() => aggregateByCategory(unfiltered, filter.selectedType), [unfiltered, filter.selectedType])
+  const { categoryData } = usePartialDataCache(transactions, filter, {
+    excludeCategory: true,
+    excludeMerchant: true,
+    excludeSearch: true,
+  })
+
   const totalAmount = useMemo(() => categoryData.reduce((s, d) => s + d.amount, 0), [categoryData])
   const displayTotal = filter.selectedType === 'net' && totalAmount < 0 ? Math.abs(totalAmount) : Math.abs(totalAmount)
 

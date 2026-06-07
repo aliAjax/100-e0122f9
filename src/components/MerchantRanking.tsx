@@ -1,14 +1,8 @@
 import { useMemo } from 'react'
 import { Store } from 'lucide-react'
 import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
-
-interface MerchantStat {
-  merchant: string
-  amount: number
-  count: number
-  avg: number
-}
+import { usePartialDataCache, fastAggregateByMerchant } from '@/hooks/useDataCache'
+import { formatCurrency } from '@/utils/dataAggregation'
 
 export default function MerchantRanking() {
   const mergeMode = useMergeMode()
@@ -19,33 +13,14 @@ export default function MerchantRanking() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const unfiltered = useMemo(
-    () => applyFilter(transactions, { selectedCategory: filter.selectedCategory, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }),
-    [transactions, filter.selectedCategory, filter.selectedMonth, filter.selectedDate, filter.selectedType],
-  )
+  const { filtered } = usePartialDataCache(transactions, filter, {
+    excludeMerchant: true,
+    excludeSearch: true,
+  })
 
-  const topMerchants = useMemo<MerchantStat[]>(() => {
-    const map = new Map<string, { amount: number; count: number }>()
-    for (const t of unfiltered) {
-      if (!t.merchant) continue
-      const existing = map.get(t.merchant) ?? { amount: 0, count: 0 }
-      const typeAmount = filter.selectedType === 'net'
-        ? (t.type === 'income' || t.type === 'refund' ? -t.amount : t.amount)
-        : t.amount
-      existing.amount += typeAmount
-      existing.count += 1
-      map.set(t.merchant, existing)
-    }
-    return Array.from(map.entries())
-      .map(([merchant, { amount, count }]) => ({
-        merchant,
-        amount: Math.round(amount * 100) / 100,
-        count,
-        avg: Math.round((amount / count) * 100) / 100,
-      }))
-      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-      .slice(0, 10)
-  }, [unfiltered, filter.selectedType])
+  const topMerchants = useMemo(() => {
+    return fastAggregateByMerchant(filtered, filter.selectedType, 10)
+  }, [filtered, filter.selectedType])
 
   const maxAmount = useMemo(() => Math.max(...topMerchants.map((m) => Math.abs(m.amount)), 0), [topMerchants])
 

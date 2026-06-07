@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Search, Edit3, Check, X, PenTool, Info } from 'lucide-react'
 import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
-import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
+import { useDataCache } from '@/hooks/useDataCache'
+import { formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 import type { TransactionType } from '@/types'
 import { cn } from '@/lib/utils'
 
-const PAGE_SIZE = 20
+const ROW_HEIGHT = 56
+const OVERSCAN = 10
 
 function getTypeColor(type: TransactionType): string {
   return TRANSACTION_TYPE_COLORS[type]
@@ -31,13 +33,7 @@ export default function TransactionTable() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
-  const sorted = useMemo(() => [...filtered].sort((a, b) => b.date.localeCompare(a.date)), [filtered])
-
-  const [page, setPage] = useState(0)
-  const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
-  const safePage = Math.min(page, Math.max(0, totalPages - 1))
-  const pageData = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+  const { filteredSorted } = useDataCache(transactions, filter)
 
   const [editingTxId, setEditingTxId] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState('')
@@ -52,8 +48,35 @@ export default function TransactionTable() {
   const minInputRef = useRef<HTMLInputElement>(null)
   const maxInputRef = useRef<HTMLInputElement>(null)
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(600)
+
   useEffect(() => {
-    setPage(0)
+    const el = scrollContainerRef.current
+    if (!el) return
+    const updateHeight = () => {
+      setViewportHeight(el.clientHeight)
+    }
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop)
+  }, [])
+
+  const totalRows = filteredSorted.length
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
+  const endIndex = Math.min(totalRows, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN)
+  const visibleItems = filteredSorted.slice(startIndex, endIndex)
+  const totalHeight = totalRows * ROW_HEIGHT
+  const offsetY = startIndex * ROW_HEIGHT
+
+  useEffect(() => {
+    setScrollTop(0)
   }, [filter.selectedCategory, filter.selectedMonth, filter.selectedDate, filter.selectedMerchant, filter.selectedType, filter.searchText, filter.amountMin, filter.amountMax])
 
   useEffect(() => {
@@ -125,6 +148,14 @@ export default function TransactionTable() {
     setEditCategory('')
   }
 
+  const [page, setPage] = useState(0)
+  const PAGE_SIZE = 50
+  const showPagination = totalRows > PAGE_SIZE * 2
+  const totalPages = Math.ceil(totalRows / PAGE_SIZE)
+  const safePage = Math.min(page, Math.max(0, totalPages - 1))
+
+  const displayedItems = showPagination ? filteredSorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE) : visibleItems
+
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-slate-700/50 px-5 py-4">
@@ -137,7 +168,7 @@ export default function TransactionTable() {
             </span>
           )}
         </div>
-        <span className="text-xs text-slate-500">共 {filtered.length} 条</span>
+        <span className="text-xs text-slate-500">共 {totalRows} 条</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-700/30 px-5 py-3">
@@ -180,7 +211,7 @@ export default function TransactionTable() {
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-slate-800/90 backdrop-blur-sm z-10">
             <tr className="border-b border-slate-700/30 text-left text-xs text-slate-500">
               <th className="px-5 py-3 font-medium">日期</th>
               <th className="px-5 py-3 font-medium">类型</th>
@@ -189,99 +220,209 @@ export default function TransactionTable() {
               <th className="px-5 py-3 text-right font-medium">金额</th>
             </tr>
           </thead>
-          <tbody>
-            {pageData.map((t) => (
-              <tr key={t.id} className="border-b border-slate-700/20 transition-colors hover:bg-slate-700/20">
-                <td className="px-5 py-3 text-slate-300">{t.date}</td>
-                <td className="px-5 py-3">
-                  <span
-                    className="inline-flex items-center rounded-md px-2 py-0.5 text-xs"
-                    style={{ backgroundColor: `${getTypeColor(t.type)}20`, color: getTypeColor(t.type) }}
-                  >
-                    {TRANSACTION_TYPE_LABELS[t.type]}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  {editingTxId === t.id ? (
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={editCategory}
-                        onChange={(e) => setEditCategory(e.target.value)}
-                        className="rounded-md border border-slate-600/40 bg-slate-900/80 px-2 py-1 text-xs text-slate-200 outline-none"
-                        onClick={(e) => e.stopPropagation()}
-                        autoFocus
-                      >
-                        {categoryNames.map((cat) => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={(e) => handleSaveEditCategory(t.id, e)}
-                        className="rounded-md p-1 text-emerald-400 transition-colors hover:bg-emerald-500/10"
-                        title="保存"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={handleCancelEditCategory}
-                        className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-700/50 hover:text-slate-300"
-                        title="取消"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => handleCategoryClick(t.category, e)}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs transition-colors hover:opacity-80',
-                          t.isManualCategory && 'ring-1 ring-amber-500/40',
-                        )}
-                        style={{ backgroundColor: `${getCategoryColor(t.category, 0)}20`, color: getCategoryColor(t.category, 0) }}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getCategoryColor(t.category, 0) }} />
-                        {t.category}
-                        {t.isManualCategory && (
-                          <PenTool className="h-3 w-3 text-amber-400" />
-                        )}
-                      </button>
-                      {!mergeMode && (
-                        <button
-                          onClick={(e) => handleStartEditCategory(t.id, t.category, e)}
-                          className="rounded-md p-1 text-slate-600 transition-colors hover:bg-slate-700/50 hover:text-slate-400"
-                          title="编辑分类"
-                        >
-                          <Edit3 className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </td>
-                <td className="max-w-[200px] px-5 py-3">
-                  <button
-                    onClick={() => handleMerchantClick(t.merchant)}
-                    className={`truncate text-xs transition-colors hover:text-violet-300 ${filter.selectedMerchant === t.merchant ? 'text-violet-400' : 'text-slate-400'}`}
-                  >
-                    {t.merchant || '-'}
-                  </button>
-                </td>
-                <td className="px-5 py-3 text-right font-mono" style={{ color: getTypeColor(t.type) }}>
-                  {t.type === 'income' || t.type === 'refund' ? '+' : '-'}¥{formatCurrency(t.amount)}
-                </td>
-              </tr>
-            ))}
-            {pageData.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
-                  暂无数据
-                </td>
-              </tr>
-            )}
-          </tbody>
         </table>
       </div>
-      {totalPages > 1 && (
+
+      {showPagination ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <tbody>
+              {displayedItems.map((t) => (
+                <tr key={t.id} className="border-b border-slate-700/20 transition-colors hover:bg-slate-700/20" style={{ height: ROW_HEIGHT }}>
+                  <td className="px-5 py-3 text-slate-300">{t.date}</td>
+                  <td className="px-5 py-3">
+                    <span
+                      className="inline-flex items-center rounded-md px-2 py-0.5 text-xs"
+                      style={{ backgroundColor: `${getTypeColor(t.type)}20`, color: getTypeColor(t.type) }}
+                    >
+                      {TRANSACTION_TYPE_LABELS[t.type]}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingTxId === t.id ? (
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={editCategory}
+                          onChange={(e) => setEditCategory(e.target.value)}
+                          className="rounded-md border border-slate-600/40 bg-slate-900/80 px-2 py-1 text-xs text-slate-200 outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                          autoFocus
+                        >
+                          {categoryNames.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={(e) => handleSaveEditCategory(t.id, e)}
+                          className="rounded-md p-1 text-emerald-400 transition-colors hover:bg-emerald-500/10"
+                          title="保存"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={handleCancelEditCategory}
+                          className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-700/50 hover:text-slate-300"
+                          title="取消"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => handleCategoryClick(t.category, e)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs transition-colors hover:opacity-80',
+                            t.isManualCategory && 'ring-1 ring-amber-500/40',
+                          )}
+                          style={{ backgroundColor: `${getCategoryColor(t.category, 0)}20`, color: getCategoryColor(t.category, 0) }}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getCategoryColor(t.category, 0) }} />
+                          {t.category}
+                          {t.isManualCategory && (
+                            <PenTool className="h-3 w-3 text-amber-400" />
+                          )}
+                        </button>
+                        {!mergeMode && (
+                          <button
+                            onClick={(e) => handleStartEditCategory(t.id, t.category, e)}
+                            className="rounded-md p-1 text-slate-600 transition-colors hover:bg-slate-700/50 hover:text-slate-400"
+                            title="编辑分类"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="max-w-[200px] px-5 py-3">
+                    <button
+                      onClick={() => handleMerchantClick(t.merchant)}
+                      className={`truncate text-xs transition-colors hover:text-violet-300 ${filter.selectedMerchant === t.merchant ? 'text-violet-400' : 'text-slate-400'}`}
+                    >
+                      {t.merchant || '-'}
+                    </button>
+                  </td>
+                  <td className="px-5 py-3 text-right font-mono" style={{ color: getTypeColor(t.type) }}>
+                    {t.type === 'income' || t.type === 'refund' ? '+' : '-'}¥{formatCurrency(t.amount)}
+                  </td>
+                </tr>
+              ))}
+              {displayedItems.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
+                    暂无数据
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div
+          ref={scrollContainerRef}
+          className="overflow-x-auto overflow-y-auto"
+          style={{ maxHeight: '600px' }}
+          onScroll={handleScroll}
+        >
+          <div style={{ height: totalHeight, position: 'relative' }}>
+            <table className="w-full text-sm" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+              <tbody style={{ transform: `translateY(${offsetY}px)` }}>
+                {visibleItems.map((t) => (
+                  <tr key={t.id} className="border-b border-slate-700/20 transition-colors hover:bg-slate-700/20" style={{ height: ROW_HEIGHT }}>
+                    <td className="px-5 py-3 text-slate-300">{t.date}</td>
+                    <td className="px-5 py-3">
+                      <span
+                        className="inline-flex items-center rounded-md px-2 py-0.5 text-xs"
+                        style={{ backgroundColor: `${getTypeColor(t.type)}20`, color: getTypeColor(t.type) }}
+                      >
+                        {TRANSACTION_TYPE_LABELS[t.type]}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      {editingTxId === t.id ? (
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="rounded-md border border-slate-600/40 bg-slate-900/80 px-2 py-1 text-xs text-slate-200 outline-none"
+                            onClick={(e) => e.stopPropagation()}
+                            autoFocus
+                          >
+                            {categoryNames.map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={(e) => handleSaveEditCategory(t.id, e)}
+                            className="rounded-md p-1 text-emerald-400 transition-colors hover:bg-emerald-500/10"
+                            title="保存"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={handleCancelEditCategory}
+                            className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-700/50 hover:text-slate-300"
+                            title="取消"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => handleCategoryClick(t.category, e)}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs transition-colors hover:opacity-80',
+                              t.isManualCategory && 'ring-1 ring-amber-500/40',
+                            )}
+                            style={{ backgroundColor: `${getCategoryColor(t.category, 0)}20`, color: getCategoryColor(t.category, 0) }}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getCategoryColor(t.category, 0) }} />
+                            {t.category}
+                            {t.isManualCategory && (
+                              <PenTool className="h-3 w-3 text-amber-400" />
+                            )}
+                          </button>
+                          {!mergeMode && (
+                            <button
+                              onClick={(e) => handleStartEditCategory(t.id, t.category, e)}
+                              className="rounded-md p-1 text-slate-600 transition-colors hover:bg-slate-700/50 hover:text-slate-400"
+                              title="编辑分类"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="max-w-[200px] px-5 py-3">
+                      <button
+                        onClick={() => handleMerchantClick(t.merchant)}
+                        className={`truncate text-xs transition-colors hover:text-violet-300 ${filter.selectedMerchant === t.merchant ? 'text-violet-400' : 'text-slate-400'}`}
+                      >
+                        {t.merchant || '-'}
+                      </button>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono" style={{ color: getTypeColor(t.type) }}>
+                      {t.type === 'income' || t.type === 'refund' ? '+' : '-'}¥{formatCurrency(t.amount)}
+                    </td>
+                  </tr>
+                ))}
+                {visibleItems.length === 0 && totalRows === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
+                      暂无数据
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showPagination && totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-slate-700/50 px-5 py-3">
           <span className="text-xs text-slate-500">
             第 {safePage + 1} / {totalPages} 页

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
-import { Upload, FileText, AlertCircle, Sparkles } from 'lucide-react'
+import { Upload, FileText, AlertCircle, Sparkles, Database } from 'lucide-react'
 import { previewCSV } from '@/utils/csvParser'
-import { generateSampleData } from '@/utils/sampleDataGenerator'
+import { generateSampleData, generateLargeSampleData } from '@/utils/sampleDataGenerator'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
@@ -76,6 +76,20 @@ export default function CSVUploader() {
     }
   }, [createBill, bills.length])
 
+  const handleUseLargeSampleData = useCallback(async () => {
+    setGenerating(true)
+    setError(null)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      const largeData = generateLargeSampleData(50000, [2022, 2024])
+      createBill(`大数据测试账单 ${bills.length + 1} (${largeData.length}条)`, largeData)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setGenerating(false)
+    }
+  }, [createBill, bills.length])
+
   return (
     <div
       onDrop={onDrop}
@@ -113,24 +127,44 @@ export default function CSVUploader() {
               <span className="text-[11px] text-slate-600">或</span>
               <div className="flex-1 h-px bg-slate-700/50" />
             </div>
-            <button
-              type="button"
-              onClick={handleUseSampleData}
-              disabled={generating}
-              className="flex items-center gap-2 rounded-xl bg-violet-500/15 px-6 py-2.5 text-sm font-medium text-violet-400 transition-all hover:bg-violet-500/25 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)] disabled:opacity-50"
-            >
-              {generating ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
-                  生成中...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  使用示例数据
-                </>
-              )}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleUseSampleData}
+                disabled={generating}
+                className="flex items-center gap-2 rounded-xl bg-violet-500/15 px-4 py-2.5 text-sm font-medium text-violet-400 transition-all hover:bg-violet-500/25 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)] disabled:opacity-50"
+              >
+                {generating ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    示例数据
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleUseLargeSampleData}
+                disabled={generating}
+                className="flex items-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-400 transition-all hover:bg-amber-500/25 hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] disabled:opacity-50"
+              >
+                {generating ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    5万条大数据
+                  </>
+                )}
+              </button>
+            </div>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
             <FileText className="h-3.5 w-3.5" />

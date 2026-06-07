@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { Wallet, TrendingUp, ArrowUpRight, CalendarDays, TrendingDown, ArrowDownRight } from 'lucide-react'
 import { useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
+import { useDataCache, getTypeAmount } from '@/hooks/useDataCache'
+import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string; accent: string }) {
@@ -21,19 +23,28 @@ export default function StatsCards() {
   const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
 
-  const filtered = applyFilter(transactions, filter)
+  const { filtered, totalAmount } = useDataCache(transactions, filter)
 
-  const totalAmount = filtered.reduce((s, t) => {
-    if (filter.selectedType === 'net') {
-      if (t.type === 'income' || t.type === 'refund') return s - t.amount
-      return s + t.amount
+  const stats = useMemo(() => {
+    const months = new Set<string>()
+    const dates = new Set<string>()
+    let maxSingle = 0
+
+    for (let i = 0; i < filtered.length; i++) {
+      const t = filtered[i]
+      months.add(t.date.slice(0, 7))
+      dates.add(t.date)
+      if (t.amount > maxSingle) maxSingle = t.amount
     }
-    return s + t.amount
-  }, 0)
-  const months = new Set(filtered.map((t) => t.date.slice(0, 7)))
-  const monthAvg = months.size > 0 ? totalAmount / months.size : 0
-  const maxSingle = filtered.length > 0 ? Math.max(...filtered.map((t) => t.amount)) : 0
-  const spendingDays = new Set(filtered.map((t) => t.date)).size
+
+    const monthAvg = months.size > 0 ? totalAmount / months.size : 0
+
+    return {
+      monthAvg,
+      maxSingle,
+      spendingDays: dates.size,
+    }
+  }, [filtered, totalAmount])
 
   const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]
   const isIncome = filter.selectedType === 'income'
@@ -53,19 +64,19 @@ export default function StatsCards() {
       <StatCard
         icon={TrendingUp}
         label={`月均${typeLabel}`}
-        value={`¥${formatCurrency(Math.abs(monthAvg))}`}
+        value={`¥${formatCurrency(Math.abs(stats.monthAvg))}`}
         accent="bg-blue-500/15 text-blue-400"
       />
       <StatCard
         icon={isIncome ? ArrowDownRight : ArrowUpRight}
         label="最大单笔"
-        value={`¥${formatCurrency(maxSingle)}`}
+        value={`¥${formatCurrency(stats.maxSingle)}`}
         accent="bg-amber-500/15 text-amber-400"
       />
       <StatCard
         icon={CalendarDays}
         label={`${typeLabel}天数`}
-        value={`${spendingDays} 天`}
+        value={`${stats.spendingDays} 天`}
         accent="bg-purple-500/15 text-purple-400"
       />
     </div>

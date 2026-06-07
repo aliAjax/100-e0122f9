@@ -3,7 +3,15 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, GitCompare, TrendingUp, TrendingDown, BarChart3, CalendarDays, ArrowUpRight, ArrowDownRight, Store, Minus, FileText } from 'lucide-react'
 import ReactECharts from 'echarts-for-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
-import { aggregateByCategory, aggregateByDay, formatCurrency } from '@/utils/dataAggregation'
+import {
+  fastAggregateByCategory,
+  fastAggregateByDay,
+  fastAggregateByMerchant,
+  fastSumTransactions,
+  fastFilterByType,
+  getTypeAmount,
+} from '@/hooks/useDataCache'
+import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
 import type { Transaction, TransactionTypeFilter, Bill } from '@/types'
 
@@ -25,43 +33,15 @@ interface MerchantChange {
   changePercent: number
 }
 
-function getTypeAmount(t: Transaction, typeFilter: TransactionTypeFilter): number {
-  if (typeFilter === 'net') {
-    if (t.type === 'income' || t.type === 'refund') return -t.amount
-    return t.amount
+function getMonthTransactionsFast(transactions: Transaction[], month: string, typeFilter: TransactionTypeFilter): Transaction[] {
+  const result: Transaction[] = []
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i]
+    if (!t.date.startsWith(month)) continue
+    if (typeFilter !== 'net' && t.type !== typeFilter) continue
+    result.push(t)
   }
-  return t.type === typeFilter ? t.amount : 0
-}
-
-function getMonthTransactions(transactions: Transaction[], month: string, typeFilter: TransactionTypeFilter): Transaction[] {
-  if (typeFilter === 'net') {
-    return transactions.filter((t) => t.date.startsWith(month))
-  }
-  return transactions.filter((t) => t.date.startsWith(month) && t.type === typeFilter)
-}
-
-function aggregateByMerchant(transactions: Transaction[], typeFilter: TransactionTypeFilter): Array<{ merchant: string; amount: number; count: number }> {
-  const map = new Map<string, { amount: number; count: number }>()
-  for (const t of transactions) {
-    if (!t.merchant) continue
-    const amount = getTypeAmount(t, typeFilter)
-    if (amount === 0 && typeFilter !== 'net') continue
-    const existing = map.get(t.merchant) ?? { amount: 0, count: 0 }
-    existing.amount += amount
-    if (amount !== 0) existing.count += 1
-    map.set(t.merchant, existing)
-  }
-  return Array.from(map.entries())
-    .map(([merchant, { amount, count }]) => ({
-      merchant,
-      amount: Math.round(amount * 100) / 100,
-      count,
-    }))
-    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-}
-
-function sumByTypeFilter(transactions: Transaction[], typeFilter: TransactionTypeFilter): number {
-  return Math.round(transactions.reduce((s, t) => s + getTypeAmount(t, typeFilter), 0) * 100) / 100
+  return result
 }
 
 function EmptyState({ icon: Icon, title, description, action }: {
@@ -178,28 +158,22 @@ export default function MonthlyComparison() {
   const dataLoaded = transactions1.length > 0 || transactions2.length > 0
 
   const availableMonths1 = useMemo(() => {
-    if (typeFilter === 'net') {
-      const months = new Set(transactions1.map((t) => t.date.slice(0, 7)))
-      return Array.from(months).sort().reverse()
+    const months = new Set<string>()
+    for (let i = 0; i < transactions1.length; i++) {
+      const t = transactions1[i]
+      if (typeFilter !== 'net' && t.type !== typeFilter) continue
+      months.add(t.date.slice(0, 7))
     }
-    const months = new Set(
-      transactions1
-        .filter((t) => t.type === typeFilter)
-        .map((t) => t.date.slice(0, 7))
-    )
     return Array.from(months).sort().reverse()
   }, [transactions1, typeFilter])
 
   const availableMonths2 = useMemo(() => {
-    if (typeFilter === 'net') {
-      const months = new Set(transactions2.map((t) => t.date.slice(0, 7)))
-      return Array.from(months).sort().reverse()
+    const months = new Set<string>()
+    for (let i = 0; i < transactions2.length; i++) {
+      const t = transactions2[i]
+      if (typeFilter !== 'net' && t.type !== typeFilter) continue
+      months.add(t.date.slice(0, 7))
     }
-    const months = new Set(
-      transactions2
-        .filter((t) => t.type === typeFilter)
-        .map((t) => t.date.slice(0, 7))
-    )
     return Array.from(months).sort().reverse()
   }, [transactions2, typeFilter])
 
@@ -209,21 +183,21 @@ export default function MonthlyComparison() {
   const effectiveMonth2 = availableMonths2.includes(month2) ? month2 : (availableMonths2[0] ?? '')
 
   const month1Transactions = useMemo(() =>
-    dataLoaded && effectiveMonth1 ? getMonthTransactions(transactions1, effectiveMonth1, typeFilter) : [],
+    dataLoaded && effectiveMonth1 ? getMonthTransactionsFast(transactions1, effectiveMonth1, typeFilter) : [],
     [dataLoaded, transactions1, effectiveMonth1, typeFilter]
   )
   const month2Transactions = useMemo(() =>
-    dataLoaded && effectiveMonth2 ? getMonthTransactions(transactions2, effectiveMonth2, typeFilter) : [],
+    dataLoaded && effectiveMonth2 ? getMonthTransactionsFast(transactions2, effectiveMonth2, typeFilter) : [],
     [dataLoaded, transactions2, effectiveMonth2, typeFilter]
   )
 
-  const month1Total = useMemo(() => sumByTypeFilter(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Total = useMemo(() => sumByTypeFilter(month2Transactions, typeFilter), [month2Transactions, typeFilter])
+  const month1Total = useMemo(() => fastSumTransactions(month1Transactions, typeFilter), [month1Transactions, typeFilter])
+  const month2Total = useMemo(() => fastSumTransactions(month2Transactions, typeFilter), [month2Transactions, typeFilter])
   const totalChange = month2Total - month1Total
   const totalChangePercent = Math.abs(month1Total) > 0.01 ? (totalChange / month1Total) * 100 : 0
 
-  const month1Categories = useMemo(() => aggregateByCategory(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Categories = useMemo(() => aggregateByCategory(month2Transactions, typeFilter), [month2Transactions, typeFilter])
+  const month1Categories = useMemo(() => fastAggregateByCategory(month1Transactions, typeFilter), [month1Transactions, typeFilter])
+  const month2Categories = useMemo(() => fastAggregateByCategory(month2Transactions, typeFilter), [month2Transactions, typeFilter])
 
   const categoryChanges = useMemo((): CategoryChange[] => {
     const map = new Map<string, CategoryChange>()
@@ -260,8 +234,8 @@ export default function MonthlyComparison() {
   const topIncreased = categoryChanges.find((c) => c.change > 0) || null
   const topDecreased = categoryChanges.find((c) => c.change < 0) || null
 
-  const month1Merchants = useMemo(() => aggregateByMerchant(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Merchants = useMemo(() => aggregateByMerchant(month2Transactions, typeFilter), [month2Transactions, typeFilter])
+  const month1Merchants = useMemo(() => fastAggregateByMerchant(month1Transactions, typeFilter, 100), [month1Transactions, typeFilter])
+  const month2Merchants = useMemo(() => fastAggregateByMerchant(month2Transactions, typeFilter, 100), [month2Transactions, typeFilter])
 
   const merchantChanges = useMemo((): MerchantChange[] => {
     const map = new Map<string, MerchantChange>()
@@ -295,8 +269,8 @@ export default function MonthlyComparison() {
     return Array.from(map.values()).sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 10)
   }, [month1Merchants, month2Merchants])
 
-  const month1Daily = useMemo(() => aggregateByDay(month1Transactions, typeFilter), [month1Transactions, typeFilter])
-  const month2Daily = useMemo(() => aggregateByDay(month2Transactions, typeFilter), [month2Transactions, typeFilter])
+  const month1Daily = useMemo(() => fastAggregateByDay(month1Transactions, typeFilter), [month1Transactions, typeFilter])
+  const month2Daily = useMemo(() => fastAggregateByDay(month2Transactions, typeFilter), [month2Transactions, typeFilter])
 
   const chartColor1 = useMemo(() => {
     if (typeFilter === 'net') return '#10B981'

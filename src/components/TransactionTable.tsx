@@ -32,7 +32,8 @@ export default function TransactionTable() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { filteredSorted } = useSharedDataCache()
+  const { cache } = useSharedDataCache()
+  const { filteredSorted } = cache
 
   const [editingTxId, setEditingTxId] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState('')

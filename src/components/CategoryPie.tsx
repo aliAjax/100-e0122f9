@@ -1,24 +1,20 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { usePartialDataCache } from '@/hooks/useDataCache'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
 
 export default function CategoryPie() {
   const mergeMode = useMergeMode()
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { categoryData } = usePartialDataCache(transactions, filter, {
-    excludeCategory: true,
-    excludeMerchant: true,
-    excludeSearch: true,
-  })
+  const { cacheFull } = useSharedDataCache()
+  const { categoryData } = cacheFull
 
   const totalAmount = useMemo(() => categoryData.reduce((s, d) => s + d.amount, 0), [categoryData])
   const displayTotal = filter.selectedType === 'net' && totalAmount < 0 ? Math.abs(totalAmount) : Math.abs(totalAmount)

@@ -4,6 +4,8 @@ import { useSharedDataCache } from '@/hooks/useSharedDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
+// HeatmapCalendar component uses cache for dailyData and years
+
 const CELL_SIZE = 14
 const CELL_GAP = 3
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日']
@@ -54,7 +56,8 @@ export default function HeatmapCalendar() {
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { dailyData, years } = useSharedDataCache()
+  const { cache } = useSharedDataCache()
+  const { dailyData, years } = cache
 
   const dailyMap = useMemo(() => {
     const m = new Map<string, number>()

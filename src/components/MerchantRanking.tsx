@@ -1,22 +1,20 @@
 import { useMemo } from 'react'
 import { Store } from 'lucide-react'
-import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
-import { usePartialDataCache, fastAggregateByMerchant } from '@/hooks/useDataCache'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
+import { useSharedDataCache } from '@/hooks/useSharedDataCache'
+import { fastAggregateByMerchant } from '@/hooks/useDataCache'
 import { formatCurrency } from '@/utils/dataAggregation'
 
 export default function MerchantRanking() {
   const mergeMode = useMergeMode()
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { filtered } = usePartialDataCache(transactions, filter, {
-    excludeMerchant: true,
-    excludeSearch: true,
-  })
+  const { cacheNoMerchantNoSearch } = useSharedDataCache()
+  const { filtered } = cacheNoMerchantNoSearch
 
   const topMerchants = useMemo(() => {
     return fastAggregateByMerchant(filtered, filter.selectedType, 10)

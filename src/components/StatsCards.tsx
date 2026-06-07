@@ -22,7 +22,8 @@ function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementTyp
 export default function StatsCards() {
   const filter = useEffectiveFilter()
 
-  const { filtered, totalAmount } = useSharedDataCache()
+  const { cache } = useSharedDataCache()
+  const { filtered, totalAmount } = cache
 
   const stats = useMemo(() => {
     const months = new Set<string>()

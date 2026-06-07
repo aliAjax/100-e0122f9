@@ -9,10 +9,16 @@ import { useCategoryStore } from './useCategoryStore'
 import type { MergeAnalysisResult, BudgetMergeResult } from '@/utils/mergeAnalysis'
 import { analyzeMergeDuplicates, analyzeBudgetConflicts, validateMergeInputs } from '@/utils/mergeAnalysis'
 import { useBudgetStore } from './useBudgetStore'
+import {
+  saveAllBillsToIndexedDB,
+  loadAllBillsFromIndexedDB,
+  deleteBillFromIndexedDB,
+} from '@/utils/storage'
 
 const STORAGE_KEY_BILLS = 'spendlens_bills'
 const STORAGE_KEY_CURRENT = 'spendlens_current_bill'
 const LEGACY_STORAGE_KEY = 'spendlens_transactions'
+const SMALL_BILL_THRESHOLD = 1000
 
 function generateId(): string {
   return `bill_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -31,27 +37,51 @@ function createEmptyFilter(): FilterState {
   }
 }
 
-function loadBills(): Bill[] {
+function normalizeBill(bill: Bill): Bill {
+  return {
+    ...bill,
+    filter: {
+      ...createEmptyFilter(),
+      ...bill.filter,
+    },
+    savedViews: bill.savedViews ?? [],
+    transactions: bill.transactions.map((t) => ({
+      ...t,
+      type: ((t as { type?: string }).type || 'expense') as TransactionType,
+    })),
+  }
+}
+
+function isSmallBill(bill: Bill): boolean {
+  return bill.transactions.length <= SMALL_BILL_THRESHOLD
+}
+
+function hasLargeBills(bills: Bill[]): boolean {
+  return bills.some((b) => !isSmallBill(b))
+}
+
+async function loadBills(): Promise<Bill[]> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_BILLS)
     if (raw) {
       const bills = JSON.parse(raw) as Bill[]
-      return bills.map((bill) => ({
-        ...bill,
-        filter: {
-          ...createEmptyFilter(),
-          ...bill.filter,
-        },
-        savedViews: bill.savedViews ?? [],
-        transactions: bill.transactions.map((t) => ({
-          ...t,
-          type: ((t as { type?: string }).type || 'expense') as TransactionType,
-        })),
-      }))
+      if (bills.length > 0) {
+        return bills.map(normalizeBill)
+      }
     }
   } catch {
     // fall through
   }
+
+  try {
+    const idbBills = await loadAllBillsFromIndexedDB()
+    if (idbBills.length > 0) {
+      return idbBills.map(normalizeBill)
+    }
+  } catch {
+    // fall through
+  }
+
   try {
     const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)
     if (legacyRaw) {
@@ -70,8 +100,8 @@ function loadBills(): Bill[] {
           createdAt: Date.now(),
         }
         const bills = [legacyBill]
-        localStorage.setItem(STORAGE_KEY_BILLS, JSON.stringify(bills))
-        localStorage.setItem(STORAGE_KEY_CURRENT, legacyBill.id)
+        void saveBills(bills)
+        saveCurrentBillId(legacyBill.id)
         localStorage.removeItem(LEGACY_STORAGE_KEY)
         return bills
       }
@@ -82,12 +112,28 @@ function loadBills(): Bill[] {
   return []
 }
 
-function saveBills(bills: Bill[]) {
+async function saveBills(bills: Bill[]): Promise<void> {
+  if (hasLargeBills(bills)) {
+    try {
+      await saveAllBillsToIndexedDB(bills)
+      const metaBills = bills.map((b) => ({ ...b, transactions: [] }))
+      localStorage.setItem(STORAGE_KEY_BILLS, JSON.stringify(metaBills))
+      return
+    } catch (e) {
+      console.warn('Failed to save bills to IndexedDB:', e)
+    }
+  }
+
   try {
     const serialized = JSON.stringify(bills)
     localStorage.setItem(STORAGE_KEY_BILLS, serialized)
   } catch (e) {
-    console.warn('Failed to save bills to localStorage (likely quota exceeded):', e)
+    console.warn('Failed to save bills to localStorage:', e)
+    try {
+      await saveAllBillsToIndexedDB(bills)
+    } catch (e2) {
+      console.warn('Also failed to save to IndexedDB:', e2)
+    }
   }
 }
 
@@ -120,6 +166,8 @@ interface DashboardStore {
   mergeDedupeEnabled: boolean
   mergeAnalysisResult: MergeAnalysisResult | null
   budgetMergeResult: BudgetMergeResult | null
+  isLoading: boolean
+  initialize: () => Promise<void>
   createBill: (name: string, transactions: Transaction[]) => void
   mergeToCurrentBill: (transactions: Transaction[]) => void
   switchBill: (billId: string) => void
@@ -171,7 +219,7 @@ function getDataLoaded(state: DashboardStore): boolean {
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
-  bills: loadBills(),
+  bills: [],
   currentBillId: loadCurrentBillId(),
   previewResult: null,
   pendingBillName: null,
@@ -181,6 +229,12 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   mergeDedupeEnabled: true,
   mergeAnalysisResult: null,
   budgetMergeResult: null,
+  isLoading: true,
+
+  initialize: async () => {
+    const bills = await loadBills()
+    set({ bills, isLoading: false })
+  },
 
   createBill: (name, transactions) => {
     const newBill: Bill = {
@@ -193,7 +247,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     }
     set((state) => {
       const bills = [...state.bills, newBill]
-      saveBills(bills)
+      void saveBills(bills)
       saveCurrentBillId(newBill.id)
       return {
         bills,
@@ -213,7 +267,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           ? { ...b, transactions: [...b.transactions, ...transactions] }
           : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills, previewResult: null, pendingBillName: null }
     })
   },
@@ -231,15 +285,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === billId ? { ...b, name: name.trim() || '未命名账单' } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },
 
   deleteBill: (billId) => {
+    void deleteBillFromIndexedDB(billId)
     set((state) => {
       const bills = state.bills.filter((b) => b.id !== billId)
-      saveBills(bills)
+      void saveBills(bills)
       let currentBillId = state.currentBillId
       if (state.currentBillId === billId) {
         currentBillId = bills.length > 0 ? bills[0].id : null
@@ -254,7 +309,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, transactions } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },
@@ -270,7 +325,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, transactions: applyResult.transactions } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
     return result
@@ -293,7 +348,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         totalManualSkipped += applyResult.manualSkippedCount
         return { ...bill, transactions: applyResult.transactions }
       })
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
     return { totalMatched, totalUnchanged, totalManualSkipped, billsAffected }
@@ -309,7 +364,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             : tx,
         ),
       }))
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },
@@ -319,7 +374,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, filter: { ...b.filter, ...partial } } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     }),
 
@@ -328,14 +383,14 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, filter: createEmptyFilter() } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     }),
 
   clearData: () => {
     set((state) => {
       const bills = state.bills.filter((b) => b.id !== state.currentBillId)
-      saveBills(bills)
+      void saveBills(bills)
       const currentBillId = bills.length > 0 ? bills[0].id : null
       saveCurrentBillId(currentBillId)
       return { bills, currentBillId, previewResult: null }
@@ -359,7 +414,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, savedViews: [...b.savedViews, newView] } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },
@@ -373,7 +428,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, filter: { ...view.filter } } : b,
       )
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },
@@ -389,7 +444,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           ),
         }
       })
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },
@@ -403,7 +458,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           savedViews: b.savedViews.filter((v) => v.id !== viewId),
         }
       })
-      saveBills(bills)
+      void saveBills(bills)
       return { bills }
     })
   },

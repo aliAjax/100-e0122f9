@@ -24,7 +24,8 @@ function SummaryItem({ icon: Icon, label, value, sub, accent }: { icon: React.El
 export default function AnnualSummary() {
   const filter = useEffectiveFilter()
 
-  const { filtered, totalAmount, monthlyData, categoryData } = useSharedDataCache()
+  const { cache } = useSharedDataCache()
+  const { filtered, totalAmount, monthlyData, categoryData } = cache
 
   const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]
 

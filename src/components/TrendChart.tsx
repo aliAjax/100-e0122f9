@@ -1,24 +1,20 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
 import { useSharedDataCache } from '@/hooks/useSharedDataCache'
-import { usePartialDataCache } from '@/hooks/useDataCache'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 export default function TrendChart() {
   const mergeMode = useMergeMode()
-  const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
 
   const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
-  const { monthlyData } = useSharedDataCache()
-
-  const { monthlyData: allMonthly } = usePartialDataCache(transactions, filter, {
-    excludeCategory: true,
-  })
+  const { cache, cacheNoCategory } = useSharedDataCache()
+  const { monthlyData } = cache
+  const { monthlyData: allMonthly } = cacheNoCategory
 
   const typeColor = TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType]
   const typeLabel = TRANSACTION_TYPE_FILTER_LABELS[filter.selectedType]

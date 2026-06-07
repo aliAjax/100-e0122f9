@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bookmark, Plus, Edit2, Trash2, Check, X } from 'lucide-react'
-import { useDashboardStore, useFilter, useSavedViews } from '@/store/useDashboardStore'
+import { Bookmark, Plus, Edit2, Trash2, Check, X, Info } from 'lucide-react'
+import { useDashboardStore, useFilter, useSavedViews, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function SavedViews() {
+  const mergeMode = useMergeMode()
   const savedViews = useSavedViews()
-  const filter = useFilter()
+  const filter = useEffectiveFilter()
   const saveView = useDashboardStore((s) => s.saveView)
   const switchView = useDashboardStore((s) => s.switchView)
   const renameView = useDashboardStore((s) => s.renameView)
@@ -83,6 +84,15 @@ export default function SavedViews() {
   const handleCancelDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
     setDeletingId(null)
+  }
+
+  if (mergeMode) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-purple-500/10 px-3 py-1.5">
+        <Info className="h-3.5 w-3.5 text-purple-400" />
+        <span className="text-xs text-purple-400">合并模式下，保存视图功能暂不可用</span>
+      </div>
+    )
   }
 
   if (savedViews.length === 0 && !hasFilter) return null

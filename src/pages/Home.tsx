@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BarChart3, Trash2, Upload, AlertCircle, Wallet, Tag, GitCompare, Palette } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useDashboardStore, useDataLoaded, useTransactions } from '@/store/useDashboardStore'
+import { useDashboardStore, useDataLoaded, useMergeMode, useEffectiveTransactions, useEffectiveDataLoaded } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { previewCSV } from '@/utils/csvParser'
@@ -25,7 +25,9 @@ import TransactionTypeToggle from '@/components/TransactionTypeToggle'
 
 export default function Home() {
   const dataLoaded = useDataLoaded()
-  const transactions = useTransactions()
+  const effectiveDataLoaded = useEffectiveDataLoaded()
+  const transactions = useEffectiveTransactions()
+  const mergeMode = useMergeMode()
   const bills = useDashboardStore((s) => s.bills)
   const clearData = useDashboardStore((s) => s.clearData)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
@@ -42,53 +44,59 @@ export default function Home() {
       <header className="sticky top-0 z-30 border-b border-slate-700/40 bg-[#0a0f1a]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-emerald-500/15 p-2">
-              <BarChart3 className="h-5 w-5 text-emerald-400" />
+            <div className={`rounded-lg p-2 ${mergeMode ? 'bg-purple-500/15' : 'bg-emerald-500/15'}`}>
+              <BarChart3 className={`h-5 w-5 ${mergeMode ? 'text-purple-400' : 'text-emerald-400'}`} />
             </div>
             <div>
               <h1 className="text-lg font-semibold text-slate-100">SpendLens</h1>
-              <p className="text-[11px] text-slate-500">年度消费结构可视化</p>
+              <p className="text-[11px] text-slate-500">
+                {mergeMode ? '多账单合并分析' : '年度消费结构可视化'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setCategoryMgmtOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
-            >
-              <Palette className="h-3.5 w-3.5" />
-              分类管理
-            </button>
-            <button
-              onClick={() => setCategoryRuleModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasCategoryRules ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
-            >
-              <Tag className="h-3.5 w-3.5" />
-              分类规则
-            </button>
-            <button
-              onClick={() => setBudgetModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasBudgets ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
-            >
-              <Wallet className="h-3.5 w-3.5" />
-              预算设置
-            </button>
-            <Link
-              to="/monthly-comparison"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
-            >
-              <GitCompare className="h-3.5 w-3.5" />
-              月度对比
-            </Link>
+            {!mergeMode && (
+              <>
+                <button
+                  onClick={() => setCategoryMgmtOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
+                >
+                  <Palette className="h-3.5 w-3.5" />
+                  分类管理
+                </button>
+                <button
+                  onClick={() => setCategoryRuleModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasCategoryRules ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  分类规则
+                </button>
+                <button
+                  onClick={() => setBudgetModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${hasBudgets ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60'}`}
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  预算设置
+                </button>
+                <Link
+                  to="/monthly-comparison"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
+                >
+                  <GitCompare className="h-3.5 w-3.5" />
+                  月度对比
+                </Link>
+              </>
+            )}
             {bills.length > 0 && (
               <>
                 <div className="h-5 w-px bg-slate-700/50" />
                 <BillSelector />
-                <span className="rounded-full bg-slate-700/50 px-3 py-1 text-xs text-slate-400">
+                <span className={`rounded-full px-3 py-1 text-xs ${mergeMode ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-700/50 text-slate-400'}`}>
                   {transactions.length} 条记录
                 </span>
               </>
             )}
-            {dataLoaded && (
+            {dataLoaded && !mergeMode && (
               <>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60">
                   <Upload className="h-3.5 w-3.5" />
@@ -139,7 +147,7 @@ export default function Home() {
       )}
 
       <main className="mx-auto max-w-[1400px] px-6 py-6">
-        {!dataLoaded ? (
+        {!effectiveDataLoaded ? (
           <div className="flex min-h-[calc(100vh-120px)] items-center justify-center">
             <div className="w-full max-w-xl">
               <div className="mb-8 text-center">

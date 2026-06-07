@@ -106,6 +106,9 @@ interface DashboardStore {
   currentBillId: string | null
   previewResult: CSVPreviewResult | null
   pendingBillName: string | null
+  mergeMode: boolean
+  selectedBillIdsForMerge: string[]
+  mergeFilter: FilterState
   createBill: (name: string, transactions: Transaction[]) => void
   mergeToCurrentBill: (transactions: Transaction[]) => void
   switchBill: (billId: string) => void
@@ -127,6 +130,11 @@ interface DashboardStore {
   renameView: (viewId: string, name: string) => void
   deleteView: (viewId: string) => void
   updateTransactionCategory: (transactionId: string, category: string, isManual?: boolean) => void
+  toggleMergeBill: (billId: string) => void
+  enterMergeMode: () => void
+  exitMergeMode: () => void
+  setMergeFilter: (filter: Partial<FilterState>) => void
+  clearMergeFilter: () => void
 }
 
 export const EMPTY_TRANSACTIONS: Transaction[] = []
@@ -154,6 +162,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   currentBillId: loadCurrentBillId(),
   previewResult: null,
   pendingBillName: null,
+  mergeMode: false,
+  selectedBillIdsForMerge: [],
+  mergeFilter: createEmptyFilter(),
 
   createBill: (name, transactions) => {
     const newBill: Bill = {
@@ -485,6 +496,34 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().mergeToCurrentBill(transactions)
     }
   },
+
+  toggleMergeBill: (billId) => {
+    set((state) => {
+      const selected = state.selectedBillIdsForMerge.includes(billId)
+        ? state.selectedBillIdsForMerge.filter((id) => id !== billId)
+        : [...state.selectedBillIdsForMerge, billId]
+      return { selectedBillIdsForMerge: selected }
+    })
+  },
+
+  enterMergeMode: () => {
+    set((state) => {
+      if (state.selectedBillIdsForMerge.length < 2) return state
+      return { mergeMode: true }
+    })
+  },
+
+  exitMergeMode: () => {
+    set({ mergeMode: false })
+  },
+
+  setMergeFilter: (partial) =>
+    set((state) => ({
+      mergeFilter: { ...state.mergeFilter, ...partial },
+    })),
+
+  clearMergeFilter: () =>
+    set({ mergeFilter: createEmptyFilter() }),
 }))
 
 export function useCurrentBill(): Bill | null {
@@ -508,4 +547,59 @@ export function useDataLoaded(): boolean {
 
 export function useSavedViews(): SavedView[] {
   return useDashboardStore((s) => getCurrentBill(s)?.savedViews ?? EMPTY_VIEWS)
+}
+
+function getMergedTransactions(state: DashboardStore): Transaction[] {
+  if (!state.mergeMode) return EMPTY_TRANSACTIONS
+  const selectedBills = state.bills.filter((b) => state.selectedBillIdsForMerge.includes(b.id))
+  return selectedBills.flatMap((b) => b.transactions)
+}
+
+function getMergedFilter(state: DashboardStore): FilterState {
+  return state.mergeFilter
+}
+
+function getMergeDataLoaded(state: DashboardStore): boolean {
+  return state.mergeMode && getMergedTransactions(state).length > 0
+}
+
+export function useMergeMode(): boolean {
+  return useDashboardStore((s) => s.mergeMode)
+}
+
+export function useSelectedBillIdsForMerge(): string[] {
+  return useDashboardStore((s) => s.selectedBillIdsForMerge)
+}
+
+export function useMergedTransactions(): Transaction[] {
+  return useDashboardStore((s) => getMergedTransactions(s))
+}
+
+export function useMergedFilter(): FilterState {
+  return useDashboardStore((s) => getMergedFilter(s))
+}
+
+export function useMergeDataLoaded(): boolean {
+  return useDashboardStore((s) => getMergeDataLoaded(s))
+}
+
+export function useEffectiveTransactions(): Transaction[] {
+  return useDashboardStore((s) => {
+    if (s.mergeMode) return getMergedTransactions(s)
+    return getCurrentTransactions(s)
+  })
+}
+
+export function useEffectiveFilter(): FilterState {
+  return useDashboardStore((s) => {
+    if (s.mergeMode) return getMergedFilter(s)
+    return getCurrentFilter(s)
+  })
+}
+
+export function useEffectiveDataLoaded(): boolean {
+  return useDashboardStore((s) => {
+    if (s.mergeMode) return getMergeDataLoaded(s)
+    return getDataLoaded(s)
+  })
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { aggregateByDay, applyFilter, formatCurrency } from '@/utils/dataAggregation'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
@@ -46,9 +46,13 @@ function getHeatColor(value: number, max: number, baseColor: string): string {
 }
 
 export default function HeatmapCalendar() {
-  const transactions = useTransactions()
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const transactions = useEffectiveTransactions()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
   const [tooltip, setTooltip] = useState<{ date: string; amount: number; x: number; y: number } | null>(null)
 
@@ -115,7 +119,7 @@ export default function HeatmapCalendar() {
 
   const handleClick = (date: string) => {
     const next = filter.selectedDate === date ? null : date
-    setFilter({ selectedDate: next, selectedMonth: next ? next.slice(0, 7) : null })
+    effectiveSetFilter({ selectedDate: next, selectedMonth: next ? next.slice(0, 7) : null })
   }
 
   const handleHover = (date: string, amount: number, e: React.MouseEvent) => {

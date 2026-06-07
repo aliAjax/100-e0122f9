@@ -1,13 +1,17 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { aggregateByMonth, applyFilter } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 export default function TrendChart() {
-  const transactions = useTransactions()
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const transactions = useEffectiveTransactions()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
   const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
   const monthlyData = useMemo(() => aggregateByMonth(filtered, filter.selectedType), [filtered, filter.selectedType])
@@ -113,7 +117,7 @@ export default function TrendChart() {
 
   const onChartClick = (params: { name?: string }) => {
     if (params.name) {
-      setFilter({ selectedMonth: params.name })
+      effectiveSetFilter({ selectedMonth: params.name })
     }
   }
 

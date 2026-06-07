@@ -1,12 +1,16 @@
-import { useDashboardStore, useFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
 import { TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 import type { TransactionTypeFilter } from '@/types'
 
 const TYPES: TransactionTypeFilter[] = ['expense', 'income', 'refund', 'net']
 
 export default function TransactionTypeToggle() {
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
   return (
     <div className="flex items-center gap-1 rounded-xl bg-slate-800/60 p-1 backdrop-blur-sm">
@@ -16,7 +20,7 @@ export default function TransactionTypeToggle() {
         return (
           <button
             key={type}
-            onClick={() => setFilter({ selectedType: type })}
+            onClick={() => effectiveSetFilter({ selectedType: type })}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
               isActive
                 ? 'bg-slate-700/80 shadow-sm'

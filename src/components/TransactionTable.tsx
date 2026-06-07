@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Search, Edit3, Check, X, PenTool } from 'lucide-react'
-import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
+import { ChevronLeft, ChevronRight, Search, Edit3, Check, X, PenTool, Info } from 'lucide-react'
+import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
@@ -20,12 +20,16 @@ function parseAmountInput(value: string): number | null {
 }
 
 export default function TransactionTable() {
-  const transactions = useTransactions()
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const transactions = useEffectiveTransactions()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
   const updateTransactionCategory = useDashboardStore((s) => s.updateTransactionCategory)
   const categories = useCategoryStore((s) => s.categories)
   const categoryNames = useMemo(() => categories.map((c) => c.name), [categories])
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
   const filtered = useMemo(() => applyFilter(transactions, filter), [transactions, filter])
   const sorted = useMemo(() => [...filtered].sort((a, b) => b.date.localeCompare(a.date)), [filtered])
@@ -69,7 +73,7 @@ export default function TransactionTable() {
     setLocalSearch(value)
     clearTimeout(searchDebounceRef.current)
     searchDebounceRef.current = setTimeout(() => {
-      setFilter({ searchText: value })
+      effectiveSetFilter({ searchText: value })
     }, 300)
   }
 
@@ -77,7 +81,7 @@ export default function TransactionTable() {
     setLocalMin(value)
     clearTimeout(minDebounceRef.current)
     minDebounceRef.current = setTimeout(() => {
-      setFilter({ amountMin: parseAmountInput(value) })
+      effectiveSetFilter({ amountMin: parseAmountInput(value) })
     }, 300)
   }
 
@@ -85,23 +89,24 @@ export default function TransactionTable() {
     setLocalMax(value)
     clearTimeout(maxDebounceRef.current)
     maxDebounceRef.current = setTimeout(() => {
-      setFilter({ amountMax: parseAmountInput(value) })
+      effectiveSetFilter({ amountMax: parseAmountInput(value) })
     }, 300)
   }
 
   const handleCategoryClick = (cat: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
     const next = filter.selectedCategory === cat ? null : cat
-    setFilter({ selectedCategory: next })
+    effectiveSetFilter({ selectedCategory: next })
   }
 
   const handleMerchantClick = (merchant: string) => {
     const next = filter.selectedMerchant === merchant ? null : merchant
-    setFilter({ selectedMerchant: next })
+    effectiveSetFilter({ selectedMerchant: next })
   }
 
   const handleStartEditCategory = (txId: string, currentCategory: string, e: React.MouseEvent) => {
     e.stopPropagation()
+    if (mergeMode) return
     setEditingTxId(txId)
     setEditCategory(currentCategory)
   }
@@ -123,7 +128,15 @@ export default function TransactionTable() {
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-slate-700/50 px-5 py-4">
-        <h3 className="text-sm font-medium text-slate-300">交易明细</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-slate-300">交易明细</h3>
+          {mergeMode && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-400">
+              <Info className="h-3 w-3" />
+              合并模式下暂不支持编辑
+            </span>
+          )}
+        </div>
         <span className="text-xs text-slate-500">共 {filtered.length} 条</span>
       </div>
 
@@ -233,13 +246,15 @@ export default function TransactionTable() {
                           <PenTool className="h-3 w-3 text-amber-400" />
                         )}
                       </button>
-                      <button
-                        onClick={(e) => handleStartEditCategory(t.id, t.category, e)}
-                        className="rounded-md p-1 text-slate-600 transition-colors hover:bg-slate-700/50 hover:text-slate-400"
-                        title="编辑分类"
-                      >
-                        <Edit3 className="h-3 w-3" />
-                      </button>
+                      {!mergeMode && (
+                        <button
+                          onClick={(e) => handleStartEditCategory(t.id, t.category, e)}
+                          className="rounded-md p-1 text-slate-600 transition-colors hover:bg-slate-700/50 hover:text-slate-400"
+                          title="编辑分类"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </td>

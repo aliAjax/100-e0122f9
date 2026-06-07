@@ -1,11 +1,17 @@
 import { X, Filter } from 'lucide-react'
-import { useDashboardStore, useFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS, TRANSACTION_TYPE_COLORS } from '@/types'
 
 export default function FilterBar() {
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
   const clearFilter = useDashboardStore((s) => s.clearFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
+  const clearMergeFilter = useDashboardStore((s) => s.clearMergeFilter)
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
+  const effectiveClearFilter = mergeMode ? clearMergeFilter : clearFilter
 
   const hasFilter =
     filter.selectedCategory ||
@@ -19,13 +25,16 @@ export default function FilterBar() {
   if (!hasFilter) return null
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5">
-      <Filter className="h-4 w-4 text-emerald-400" />
+    <div className={mergeMode
+      ? 'flex items-center gap-3 rounded-xl border border-purple-500/20 bg-purple-500/5 px-4 py-2.5'
+      : 'flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5'
+    }>
+      <Filter className={mergeMode ? 'h-4 w-4 text-purple-400' : 'h-4 w-4 text-emerald-400'} />
       <span className="text-xs text-slate-400">当前筛选：</span>
       <div className="flex flex-wrap items-center gap-2">
         {filter.selectedType !== 'expense' && (
           <button
-            onClick={() => setFilter({ selectedType: 'expense' })}
+            onClick={() => effectiveSetFilter({ selectedType: 'expense' })}
             className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors hover:opacity-80"
             style={{
               backgroundColor: `${TRANSACTION_TYPE_COLORS[filter.selectedType === 'net' ? 'expense' : filter.selectedType]}20`,
@@ -38,7 +47,7 @@ export default function FilterBar() {
         )}
         {filter.selectedCategory && (
           <button
-            onClick={() => setFilter({ selectedCategory: null })}
+            onClick={() => effectiveSetFilter({ selectedCategory: null })}
             className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors hover:opacity-80"
             style={{ backgroundColor: `${getCategoryColor(filter.selectedCategory, 0)}20`, color: getCategoryColor(filter.selectedCategory, 0) }}
           >
@@ -48,7 +57,7 @@ export default function FilterBar() {
         )}
         {filter.selectedMonth && (
           <button
-            onClick={() => setFilter({ selectedMonth: null, selectedDate: null })}
+            onClick={() => effectiveSetFilter({ selectedMonth: null, selectedDate: null })}
             className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/15 px-2.5 py-1 text-xs text-blue-400 transition-colors hover:opacity-80"
           >
             {filter.selectedMonth}
@@ -57,7 +66,7 @@ export default function FilterBar() {
         )}
         {filter.selectedDate && (
           <button
-            onClick={() => setFilter({ selectedDate: null })}
+            onClick={() => effectiveSetFilter({ selectedDate: null })}
             className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-2.5 py-1 text-xs text-amber-400 transition-colors hover:opacity-80"
           >
             {filter.selectedDate}
@@ -66,7 +75,7 @@ export default function FilterBar() {
         )}
         {filter.selectedMerchant && (
           <button
-            onClick={() => setFilter({ selectedMerchant: null })}
+            onClick={() => effectiveSetFilter({ selectedMerchant: null })}
             className="inline-flex items-center gap-1.5 rounded-md bg-violet-500/15 px-2.5 py-1 text-xs text-violet-400 transition-colors hover:opacity-80"
           >
             {filter.selectedMerchant}
@@ -75,7 +84,7 @@ export default function FilterBar() {
         )}
         {filter.searchText && (
           <button
-            onClick={() => setFilter({ searchText: '' })}
+            onClick={() => effectiveSetFilter({ searchText: '' })}
             className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-2.5 py-1 text-xs text-cyan-400 transition-colors hover:opacity-80"
           >
             搜索：{filter.searchText}
@@ -84,7 +93,7 @@ export default function FilterBar() {
         )}
         {(filter.amountMin !== null || filter.amountMax !== null) && (
           <button
-            onClick={() => setFilter({ amountMin: null, amountMax: null })}
+            onClick={() => effectiveSetFilter({ amountMin: null, amountMax: null })}
             className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-2.5 py-1 text-xs text-amber-400 transition-colors hover:opacity-80"
           >
             金额：¥{filter.amountMin ?? 0} ~ ¥{filter.amountMax ?? '∞'}
@@ -93,7 +102,7 @@ export default function FilterBar() {
         )}
       </div>
       <button
-        onClick={clearFilter}
+        onClick={effectiveClearFilter}
         className="ml-auto text-xs text-slate-500 transition-colors hover:text-slate-300"
       >
         清除全部

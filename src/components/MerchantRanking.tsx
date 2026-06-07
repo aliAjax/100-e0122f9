@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Store } from 'lucide-react'
-import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { applyFilter, formatCurrency } from '@/utils/dataAggregation'
 
 interface MerchantStat {
@@ -11,9 +11,13 @@ interface MerchantStat {
 }
 
 export default function MerchantRanking() {
-  const transactions = useTransactions()
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const transactions = useEffectiveTransactions()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
   const unfiltered = useMemo(
     () => applyFilter(transactions, { selectedCategory: filter.selectedCategory, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }),
@@ -49,7 +53,7 @@ export default function MerchantRanking() {
 
   const handleClick = (merchant: string) => {
     const next = filter.selectedMerchant === merchant ? null : merchant
-    setFilter({ selectedMerchant: next })
+    effectiveSetFilter({ selectedMerchant: next })
   }
 
   return (

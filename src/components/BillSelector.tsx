@@ -1,19 +1,25 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Plus, Edit2, Trash2, FileText, Check, X } from 'lucide-react'
-import { useDashboardStore, useCurrentBill } from '@/store/useDashboardStore'
+import { ChevronDown, Plus, Edit2, Trash2, FileText, Check, X, Layers, CheckSquare, Square } from 'lucide-react'
+import { useDashboardStore, useCurrentBill, useMergeMode, useSelectedBillIdsForMerge } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function BillSelector() {
   const bills = useDashboardStore((s) => s.bills)
   const currentBillId = useDashboardStore((s) => s.currentBillId)
   const currentBill = useCurrentBill()
+  const mergeMode = useMergeMode()
+  const selectedBillIdsForMerge = useSelectedBillIdsForMerge()
   const switchBill = useDashboardStore((s) => s.switchBill)
   const renameBill = useDashboardStore((s) => s.renameBill)
   const deleteBill = useDashboardStore((s) => s.deleteBill)
   const setPendingBillName = useDashboardStore((s) => s.setPendingBillName)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
+  const toggleMergeBill = useDashboardStore((s) => s.toggleMergeBill)
+  const enterMergeMode = useDashboardStore((s) => s.enterMergeMode)
+  const exitMergeMode = useDashboardStore((s) => s.exitMergeMode)
 
   const [open, setOpen] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
@@ -41,12 +47,17 @@ export default function BillSelector() {
 
   const handleNewBill = () => {
     setOpen(false)
+    setSelectMode(false)
     setPendingBillName(`账单 ${bills.length + 1}`)
     setPreviewResult(null)
     document.getElementById('bill-file-input')?.click()
   }
 
   const handleSwitch = (billId: string) => {
+    if (selectMode) {
+      toggleMergeBill(billId)
+      return
+    }
     if (billId !== currentBillId) {
       switchBill(billId)
     }
@@ -92,12 +103,58 @@ export default function BillSelector() {
     setShowDeleteConfirm(null)
   }
 
+  const handleEnterSelectMode = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectMode(true)
+    if (currentBillId) {
+      if (!selectedBillIdsForMerge.includes(currentBillId)) {
+        toggleMergeBill(currentBillId)
+      }
+    }
+  }
+
+  const handleExitSelectMode = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectMode(false)
+  }
+
+  const handleEnterMergeMode = () => {
+    enterMergeMode()
+    setOpen(false)
+    setSelectMode(false)
+  }
+
+  const handleExitMergeMode = () => {
+    exitMergeMode()
+  }
+
   const formatDate = (timestamp: number) => {
     const d = new Date(timestamp)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
   if (bills.length === 0) return null
+
+  if (mergeMode) {
+    const selectedBills = bills.filter((b) => selectedBillIdsForMerge.includes(b.id))
+    return (
+      <div className="flex items-center gap-2">
+        <div className="inline-flex items-center gap-2 rounded-lg bg-purple-500/15 px-3 py-1.5 text-xs text-purple-400">
+          <Layers className="h-3.5 w-3.5" />
+          <span className="max-w-[180px] truncate">
+            合并分析 · {selectedBills.length} 份账单
+          </span>
+        </div>
+        <button
+          onClick={handleExitMergeMode}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700/40 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700/60"
+        >
+          <X className="h-3.5 w-3.5" />
+          退出合并
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -115,6 +172,48 @@ export default function BillSelector() {
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-slate-700/50 bg-[#0d1420] shadow-2xl">
+          {!selectMode && bills.length >= 2 && (
+            <div className="border-b border-slate-700/30 p-2">
+              <button
+                onClick={handleEnterSelectMode}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-500/10 px-3 py-2 text-xs font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                选择多账单合并分析
+              </button>
+            </div>
+          )}
+
+          {selectMode && (
+            <div className="border-b border-slate-700/30 p-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">
+                  已选 {selectedBillIdsForMerge.length} 份
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExitSelectMode}
+                    className="rounded-md bg-slate-700/40 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-700/60"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleEnterMergeMode}
+                    disabled={selectedBillIdsForMerge.length < 2}
+                    className={cn(
+                      'rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
+                      selectedBillIdsForMerge.length >= 2
+                        ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+                        : 'bg-slate-700/20 text-slate-600 cursor-not-allowed',
+                    )}
+                  >
+                    开始合并
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="max-h-[320px] overflow-y-auto">
             {bills.map((bill) => (
               <div
@@ -122,7 +221,13 @@ export default function BillSelector() {
                 onClick={() => handleSwitch(bill.id)}
                 className={cn(
                   'group cursor-pointer border-b border-slate-700/30 px-4 py-3 transition-colors last:border-0',
-                  bill.id === currentBillId ? 'bg-emerald-500/10' : 'hover:bg-slate-700/30',
+                  selectMode
+                    ? selectedBillIdsForMerge.includes(bill.id)
+                      ? 'bg-purple-500/10'
+                      : 'hover:bg-slate-700/30'
+                    : bill.id === currentBillId
+                      ? 'bg-emerald-500/10'
+                      : 'hover:bg-slate-700/30',
                 )}
               >
                 {editingId === bill.id ? (
@@ -174,13 +279,24 @@ export default function BillSelector() {
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
+                        {selectMode && (
+                          selectedBillIdsForMerge.includes(bill.id) ? (
+                            <CheckSquare className="h-4 w-4 text-purple-400 shrink-0" />
+                          ) : (
+                            <Square className="h-4 w-4 text-slate-500 shrink-0" />
+                          )
+                        )}
                         <p className={cn(
                           'truncate text-sm font-medium',
-                          bill.id === currentBillId ? 'text-emerald-400' : 'text-slate-200',
+                          selectMode
+                            ? 'text-slate-200'
+                            : bill.id === currentBillId
+                              ? 'text-emerald-400'
+                              : 'text-slate-200',
                         )}>
                           {bill.name}
                         </p>
-                        {bill.id === currentBillId && (
+                        {!selectMode && bill.id === currentBillId && (
                           <span className="shrink-0 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-400">
                             当前
                           </span>
@@ -190,22 +306,24 @@ export default function BillSelector() {
                         {bill.transactions.length} 条 · 创建于 {formatDate(bill.createdAt)}
                       </p>
                     </div>
-                    <div className="ml-2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={(e) => handleStartRename(bill.id, e)}
-                        className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
-                        title="重命名"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(bill.id, e)}
-                        className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
-                        title="删除"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    {!selectMode && (
+                      <div className="ml-2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={(e) => handleStartRename(bill.id, e)}
+                          className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+                          title="重命名"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(bill.id, e)}
+                          className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                          title="删除"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

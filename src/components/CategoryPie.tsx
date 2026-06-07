@@ -1,13 +1,17 @@
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { useDashboardStore, useTransactions, useFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { aggregateByCategory, applyFilter, formatCurrency } from '@/utils/dataAggregation'
 import { getCategoryColor, TRANSACTION_TYPE_FILTER_LABELS } from '@/types'
 
 export default function CategoryPie() {
-  const transactions = useTransactions()
-  const filter = useFilter()
+  const mergeMode = useMergeMode()
+  const transactions = useEffectiveTransactions()
+  const filter = useEffectiveFilter()
   const setFilter = useDashboardStore((s) => s.setFilter)
+  const setMergeFilter = useDashboardStore((s) => s.setMergeFilter)
+
+  const effectiveSetFilter = mergeMode ? setMergeFilter : setFilter
 
   const unfiltered = useMemo(
     () => applyFilter(transactions, { selectedCategory: null, selectedMonth: filter.selectedMonth, selectedDate: filter.selectedDate, selectedMerchant: null, selectedType: filter.selectedType, searchText: '', amountMin: null, amountMax: null }),
@@ -95,7 +99,7 @@ export default function CategoryPie() {
   const onChartClick = (params: { name?: string }) => {
     if (params.name) {
       const next = filter.selectedCategory === params.name ? null : params.name
-      setFilter({ selectedCategory: next })
+      effectiveSetFilter({ selectedCategory: next })
     }
   }
 

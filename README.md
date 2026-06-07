@@ -1,57 +1,182 @@
-# React + TypeScript + Vite
+# SpendLens - 个人消费数据分析工具
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一款现代化的个人账单管理与消费分析工具，支持 CSV 账单导入、多维度可视化分析、预算管理和分类规则配置。
 
-Currently, two official plugins are available:
+## 功能特性
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **账单导入**：支持 CSV 格式账单文件拖拽上传，自动识别中英文列名
+- **示例数据**：内置示例数据生成器，一键生成近 12 个月的模拟账单或 5 万条大数据测试集
+- **多维度分析**：
+  - 收支趋势图（月度/每日）
+  - 分类占比饼图
+  - 热力图日历
+  - 商户消费排行
+  - 月度对比分析
+- **预算管理**：支持按月度、年度设置分类预算，实时展示预算进度
+- **分类规则**：支持关键词匹配规则，自动归类交易商户
+- **数据合并**：支持多账单数据合并分析
+- **筛选视图**：支持多条件筛选，可保存常用筛选视图
 
-## Expanding the ESLint configuration
+## CSV 格式说明
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 必填列
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+| 列名（支持多种别名） | 说明 | 示例 |
+|---------------------|------|------|
+| `date` / `日期` / `交易日期` | 交易日期，支持 YYYY-MM-DD 或 YYYY/MM/DD 格式 | `2024-01-15` |
+| `amount` / `金额` / `交易金额` | 交易金额，支持正负号、千分位 | `128.50`、`-299.00`、`1,299.00` |
+
+### 可选列
+
+| 列名（支持多种别名） | 说明 | 示例 |
+|---------------------|------|------|
+| `category` / `分类` / `消费分类` | 消费分类 | `餐饮`、`交通` |
+| `merchant` / `商户` / `交易对方` / `描述` | 商户名称或交易描述 | `星巴克`、`滴滴出行` |
+| `type` / `类型` / `收支类型` | 交易类型：支出/收入/退款 | `支出`、`income` |
+
+### 列名自动识别
+
+系统会自动匹配以下别名（不区分大小写）：
+
+- **日期**：`date`, `日期`, `交易日期`, `transaction_date`, `trans_date`
+- **分类**：`category`, `分类`, `消费分类`, `类别`
+- **商户**：`merchant`, `商户`, `交易对方`, `store`, `店铺`, `商家`, `描述`, `description`
+- **金额**：`amount`, `金额`, `交易金额`, `money`, `price`
+- **类型**：`type`, `类型`, `收支类型`, `交易类型`, `交易方向`, `direction`
+
+### 交易类型自动识别
+
+- **收入**：金额前缀 `+`、类型包含 `收入/income/进账/入账/转入/收款`
+- **支出**：金额前缀 `-`、金额为负数、类型包含 `支出/expense/花费/消费/转出/付款`
+- **退款**：类型包含 `退款/refund/退单/退货/返还`
+
+### CSV 示例
+
+```csv
+日期,分类,商户,金额,类型
+2024-01-15,餐饮,星巴克,38.00,支出
+2024-01-16,交通,滴滴出行,25.50,支出
+2024-01-17,购物,淘宝,299.00,支出
+2024-01-18,工资,公司转账,15000.00,收入
+2024-01-19,其他,淘宝退款,-99.00,退款
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 快速开始
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 环境要求
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Node.js >= 18
+- npm 或 pnpm
+
+### 安装依赖
+
+```bash
+npm install
 ```
+
+### 本地开发
+
+```bash
+npm run dev
+```
+
+启动后访问 `http://localhost:5173`
+
+### 示例数据入口
+
+在首页上传区域：
+- 点击 **「示例数据」** 按钮：生成近 12 个月的模拟账单（约 500 条）
+- 点击 **「5万条大数据」** 按钮：生成 2022-2024 年共 5 万条测试数据
+
+## 质量检查与构建
+
+### 类型检查
+
+```bash
+npm run check
+```
+
+使用 TypeScript 进行类型检查，不生成输出文件。
+
+### Lint 检查
+
+```bash
+npm run lint
+```
+
+使用 ESLint 检查代码规范。
+
+### 运行测试
+
+```bash
+# 运行所有测试
+npm run test
+
+# 监听模式
+npm run test:watch
+
+# UI 界面
+npm run test:ui
+```
+
+### 构建生产版本
+
+```bash
+npm run build
+```
+
+先执行类型检查，再进行 Vite 构建，输出到 `dist` 目录。
+
+### 本地预览构建结果
+
+```bash
+npm run preview
+```
+
+### 统一验证（推荐）
+
+```bash
+npm run verify
+```
+
+依次执行：**类型检查 → Lint 检查 → 构建**，确保代码质量。新机器接手或提交代码前建议运行此命令。
+
+## 项目结构
+
+```
+src/
+├── components/       # 组件库
+│   ├── CSVUploader.tsx       # CSV 上传组件
+│   ├── CategoryPie.tsx       # 分类饼图
+│   ├── TrendChart.tsx        # 趋势图
+│   ├── HeatmapCalendar.tsx   # 热力图日历
+│   ├── BudgetProgress.tsx    # 预算进度
+│   └── ...
+├── pages/            # 页面
+│   ├── Home.tsx              # 首页（仪表盘）
+│   └── MonthlyComparison.tsx # 月度对比
+├── store/            # 状态管理（Zustand）
+├── hooks/            # 自定义 Hooks
+├── utils/            # 工具函数
+│   ├── csvParser.ts          # CSV 解析
+│   ├── dataAggregation.ts    # 数据聚合
+│   ├── sampleDataGenerator.ts # 示例数据生成
+│   └── ...
+├── types/            # TypeScript 类型定义
+├── contexts/         # React Context
+├── lib/              # 通用工具
+├── App.tsx           # 应用入口
+└── main.tsx          # 渲染入口
+```
+
+## 技术栈
+
+- **框架**：React 18 + TypeScript
+- **构建工具**：Vite 6
+- **状态管理**：Zustand
+- **图表库**：ECharts
+- **样式方案**：Tailwind CSS
+- **CSV 解析**：Papa Parse
+- **图标库**：Lucide React
+- **测试框架**：Vitest
+- **代码规范**：ESLint + TypeScript ESLint

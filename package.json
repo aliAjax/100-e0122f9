@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "check": "tsc -b --noEmit",
+    "verify": "npm run check && npm run lint && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui"

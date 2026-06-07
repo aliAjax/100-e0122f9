@@ -88,7 +88,7 @@ export interface CSVPreviewResult {
   invalidRows: Array<{ row: Record<string, string>; reason: string }>
 }
 
-function findColumn(headers: string[], aliases: string[]): string | null {
+export function findColumn(headers: string[], aliases: string[]): string | null {
   const lower = headers.map((h) => h.trim().toLowerCase())
   for (const alias of aliases) {
     const idx = lower.indexOf(alias.toLowerCase())

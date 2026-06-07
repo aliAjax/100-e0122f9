@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import type { Transaction, FilterState, Bill, TransactionType, SavedView } from '@/types'
+import { CATEGORY_LIST } from '@/types'
 import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
 import { parseRows, detectDuplicates } from '@/utils/csvParser'
 import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
+import { useCategoryStore } from './useCategoryStore'
 
 const STORAGE_KEY_BILLS = 'spendlens_bills'
 const STORAGE_KEY_CURRENT = 'spendlens_current_bill'
@@ -405,6 +407,18 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     if (transactions.length === 0) {
       set({ previewResult: null, pendingBillName: null })
       return
+    }
+
+    const categoryStore = useCategoryStore.getState()
+    const existingCategoryNames = new Set(categoryStore.getCategoryNames())
+    const defaultCategories = new Set(CATEGORY_LIST)
+
+    for (const tx of transactions) {
+      const category = tx.category
+      if (category && category !== '其他' && !existingCategoryNames.has(category) && !defaultCategories.has(category)) {
+        categoryStore.addCategory(category)
+        existingCategoryNames.add(category)
+      }
     }
 
     if (mode === 'create') {

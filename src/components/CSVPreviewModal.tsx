@@ -57,22 +57,8 @@ export default function CSVPreviewModal() {
   const bills = useDashboardStore((s) => s.bills)
   const currentBillId = useDashboardStore((s) => s.currentBillId)
   const categoryRules = useCategoryRuleStore((s) => s.rules)
-  const customCategories = useCategoryStore((s) => s.categories)
-
-  const currentBill = useMemo(
-    () => bills.find((b) => b.id === currentBillId),
-    [bills, currentBillId],
-  )
-
-  const existingCategories = useMemo(() => {
-    const cats = new Set([...ALL_CATEGORIES, ...customCategories])
-    if (currentBill) {
-      currentBill.transactions.forEach((t) => cats.add(t.category))
-    }
-    return Array.from(cats)
-  }, [currentBill, customCategories])
-
-  const hasCurrentBill = !!currentBill
+  const categoryStoreCategories = useCategoryStore((s) => s.categories)
+  const addCategory = useCategoryStore((s) => s.addCategory)
 
   const [importMode, setImportMode] = useState<ImportMode>('create')
   const [billName, setBillName] = useState(pendingBillName || `账单 ${bills.length + 1}`)
@@ -84,6 +70,22 @@ export default function CSVPreviewModal() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [reconciliationItems, setReconciliationItems] = useState<ImportReconciliationItem[]>([])
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
+
+  const currentBill = useMemo(
+    () => bills.find((b) => b.id === currentBillId),
+    [bills, currentBillId],
+  )
+
+  const existingCategories = useMemo(() => {
+    const cats = new Set<string>([...ALL_CATEGORIES])
+    categoryStoreCategories.forEach((c) => cats.add(c.name))
+    if (currentBill) {
+      currentBill.transactions.forEach((t) => cats.add(t.category))
+    }
+    return Array.from(cats)
+  }, [currentBill, categoryStoreCategories])
+
+  const hasCurrentBill = !!currentBill
 
   useEffect(() => {
     if (previewResult) {

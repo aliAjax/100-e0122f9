@@ -3,7 +3,7 @@ import type { StoreSetter, StoreGetter } from './types'
 import { generateId, saveBills } from './persistence'
 import { getCurrentBill } from './selectors'
 
-export function saveView(set: StoreSetter, get: StoreGetter, name: string) {
+export function saveView(set: StoreSetter, _get: StoreGetter, name: string) {
   set((state) => {
     const bill = getCurrentBill(state)
     if (!bill) return state
@@ -21,7 +21,7 @@ export function saveView(set: StoreSetter, get: StoreGetter, name: string) {
   })
 }
 
-export function switchView(set: StoreSetter, get: StoreGetter, viewId: string) {
+export function switchView(set: StoreSetter, _get: StoreGetter, viewId: string) {
   set((state) => {
     const bill = getCurrentBill(state)
     if (!bill) return state
@@ -35,7 +35,7 @@ export function switchView(set: StoreSetter, get: StoreGetter, viewId: string) {
   })
 }
 
-export function renameView(set: StoreSetter, get: StoreGetter, viewId: string, name: string) {
+export function renameView(set: StoreSetter, _get: StoreGetter, viewId: string, name: string) {
   set((state) => {
     const bills = state.bills.map((b) => {
       if (b.id !== state.currentBillId) return b
@@ -51,7 +51,7 @@ export function renameView(set: StoreSetter, get: StoreGetter, viewId: string, n
   })
 }
 
-export function deleteView(set: StoreSetter, get: StoreGetter, viewId: string) {
+export function deleteView(set: StoreSetter, _get: StoreGetter, viewId: string) {
   set((state) => {
     const bills = state.bills.map((b) => {
       if (b.id !== state.currentBillId) return b

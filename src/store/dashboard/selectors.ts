@@ -1,6 +1,5 @@
 import type { Bill, Transaction, FilterState, SavedView } from '@/types'
 import type { DashboardStore } from './types'
-import type { MergeAnalysisResult } from '@/utils/mergeAnalysis'
 
 export const EMPTY_TRANSACTIONS: Transaction[] = []
 export const EMPTY_FILTER: FilterState = {

@@ -6,7 +6,6 @@ import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from '../useCategoryRuleStore'
 import { useCategoryStore } from '../useCategoryStore'
 import type { StoreSetter, StoreGetter, ReconciliationMode } from './types'
-import { getCurrentBill } from './selectors'
 
 export function confirmPreview(
   set: StoreSetter,

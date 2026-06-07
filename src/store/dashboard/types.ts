@@ -1,4 +1,4 @@
-import type { Bill, FilterState, Transaction, SavedView } from '@/types'
+import type { Bill, FilterState, Transaction } from '@/types'
 import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
 import type { MergeAnalysisResult, BudgetMergeResult } from '@/utils/mergeAnalysis'
 

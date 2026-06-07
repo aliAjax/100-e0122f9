@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
 import type { DashboardStore } from './dashboard/types'
 import { loadBills, loadCurrentBillId, createEmptyFilter } from './dashboard/persistence'
 import {
@@ -38,7 +37,6 @@ import {
 } from './dashboard/mergeOperations'
 import {
   EMPTY_TRANSACTIONS,
-  EMPTY_FILTER,
   EMPTY_VIEWS,
   getCurrentBill,
   getCurrentTransactions,

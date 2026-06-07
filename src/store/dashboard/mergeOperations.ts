@@ -4,7 +4,7 @@ import { createEmptyFilter } from './persistence'
 import { analyzeMergeDuplicates, analyzeBudgetConflicts, validateMergeInputs } from '@/utils/mergeAnalysis'
 import { useBudgetStore } from '../useBudgetStore'
 
-export function toggleMergeBill(set: StoreSetter, get: StoreGetter, billId: string) {
+export function toggleMergeBill(set: StoreSetter, _get: StoreGetter, billId: string) {
   set((state) => {
     const selected = state.selectedBillIdsForMerge.includes(billId)
       ? state.selectedBillIdsForMerge.filter((id) => id !== billId)
@@ -13,7 +13,7 @@ export function toggleMergeBill(set: StoreSetter, get: StoreGetter, billId: stri
   })
 }
 
-export function enterMergeMode(set: StoreSetter, get: StoreGetter) {
+export function enterMergeMode(set: StoreSetter, _get: StoreGetter) {
   set((state) => {
     if (state.selectedBillIdsForMerge.length < 2) return state
     const validation = validateMergeInputs(state.bills, state.selectedBillIdsForMerge)
@@ -29,7 +29,7 @@ export function enterMergeMode(set: StoreSetter, get: StoreGetter) {
   })
 }
 
-export function exitMergeMode(set: StoreSetter, get: StoreGetter) {
+export function exitMergeMode(set: StoreSetter, _get: StoreGetter) {
   set({
     mergeMode: false,
     mergeAnalysisResult: null,
@@ -37,7 +37,7 @@ export function exitMergeMode(set: StoreSetter, get: StoreGetter) {
   })
 }
 
-export function setMergeDedupeEnabled(set: StoreSetter, get: StoreGetter, enabled: boolean) {
+export function setMergeDedupeEnabled(set: StoreSetter, _get: StoreGetter, enabled: boolean) {
   set((state) => {
     const analysisResult = state.mergeMode
       ? analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
@@ -49,7 +49,7 @@ export function setMergeDedupeEnabled(set: StoreSetter, get: StoreGetter, enable
   })
 }
 
-export function refreshMergeAnalysis(set: StoreSetter, get: StoreGetter) {
+export function refreshMergeAnalysis(set: StoreSetter, _get: StoreGetter) {
   set((state) => {
     if (!state.mergeMode) return state
     const analysisResult = analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
@@ -62,12 +62,12 @@ export function refreshMergeAnalysis(set: StoreSetter, get: StoreGetter) {
   })
 }
 
-export function setMergeFilter(set: StoreSetter, get: StoreGetter, partial: Partial<FilterState>) {
+export function setMergeFilter(set: StoreSetter, _get: StoreGetter, partial: Partial<FilterState>) {
   set((state) => ({
     mergeFilter: { ...state.mergeFilter, ...partial },
   }))
 }
 
-export function clearMergeFilter(set: StoreSetter, get: StoreGetter) {
+export function clearMergeFilter(set: StoreSetter, _get: StoreGetter) {
   set({ mergeFilter: createEmptyFilter() })
 }

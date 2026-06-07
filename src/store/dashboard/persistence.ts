@@ -1,4 +1,4 @@
-import type { Bill, Transaction, TransactionType, FilterState, SavedView } from '@/types'
+import type { Bill, Transaction, TransactionType, FilterState } from '@/types'
 import {
   saveAllBillsToIndexedDB,
   loadAllBillsFromIndexedDB,

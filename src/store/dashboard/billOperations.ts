@@ -104,7 +104,7 @@ export function updateTransactionCategory(
   })
 }
 
-export function applyRulesToCurrentBill(set: StoreSetter, get: StoreGetter) {
+export function applyRulesToCurrentBill(set: StoreSetter, _get: StoreGetter) {
   const rules = useCategoryRuleStore.getState().rules
   let result = { matchedCount: 0, unchangedCount: 0, manualSkippedCount: 0 }
   set((state) => {
@@ -121,7 +121,7 @@ export function applyRulesToCurrentBill(set: StoreSetter, get: StoreGetter) {
   return result
 }
 
-export function applyRulesToAllBills(set: StoreSetter, get: StoreGetter) {
+export function applyRulesToAllBills(set: StoreSetter, _get: StoreGetter) {
   const rules = useCategoryRuleStore.getState().rules
   let totalMatched = 0
   let totalUnchanged = 0
@@ -144,7 +144,7 @@ export function applyRulesToAllBills(set: StoreSetter, get: StoreGetter) {
   return { totalMatched, totalUnchanged, totalManualSkipped, billsAffected }
 }
 
-export function setFilter(set: StoreSetter, get: StoreGetter, partial: Partial<FilterState>) {
+export function setFilter(set: StoreSetter, _get: StoreGetter, partial: Partial<FilterState>) {
   set((state) => {
     const bills = state.bills.map((b) =>
       b.id === state.currentBillId ? { ...b, filter: { ...b.filter, ...partial } } : b,
@@ -154,7 +154,7 @@ export function setFilter(set: StoreSetter, get: StoreGetter, partial: Partial<F
   })
 }
 
-export function clearFilter(set: StoreSetter, get: StoreGetter) {
+export function clearFilter(set: StoreSetter, _get: StoreGetter) {
   set((state) => {
     const bills = state.bills.map((b) =>
       b.id === state.currentBillId ? { ...b, filter: createEmptyFilter() } : b,
@@ -164,7 +164,7 @@ export function clearFilter(set: StoreSetter, get: StoreGetter) {
   })
 }
 
-export function clearData(set: StoreSetter, get: StoreGetter) {
+export function clearData(set: StoreSetter, _get: StoreGetter) {
   set((state) => {
     const bills = state.bills.filter((b) => b.id !== state.currentBillId)
     void saveBills(bills)

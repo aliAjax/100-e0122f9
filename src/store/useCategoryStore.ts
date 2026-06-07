@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { DEFAULT_COLORS, type BudgetMap, type BudgetPeriodConfig } from '@/types'
+import { DEFAULT_COLORS, type BudgetMap, mergeBudgetConfigs } from '@/types'
 import { useDashboardStore } from './useDashboardStore'
 import { useBudgetStore } from './useBudgetStore'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
@@ -209,14 +209,19 @@ export const useCategoryStore = create<CategoryStore>((set, get) => ({
     localStorage.setItem('spendlens_bills', billsRaw)
 
     useBudgetStore.setState((state) => {
-      const nextBudgets: BudgetMap = {}
-      for (const [cat, config] of Object.entries(state.budgets)) {
-        if (cat === sourceName) {
-          continue
+      const nextBudgets: BudgetMap = { ...state.budgets }
+      const sourceConfig = nextBudgets[sourceName]
+      const targetConfig = nextBudgets[targetName]
+
+      if (sourceConfig) {
+        if (targetConfig) {
+          nextBudgets[targetName] = mergeBudgetConfigs(targetConfig, sourceConfig)
         } else {
-          nextBudgets[cat] = config
+          nextBudgets[targetName] = sourceConfig
         }
+        delete nextBudgets[sourceName]
       }
+
       localStorage.setItem('spendlens_budgets', JSON.stringify(nextBudgets))
       localStorage.setItem('spendlens_budgets_version', 'v2')
       return { budgets: nextBudgets }

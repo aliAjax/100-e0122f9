@@ -1,9 +1,11 @@
-import { useMemo } from 'react'
-import { AlertTriangle, Info, TrendingDown, TrendingUp, Target } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, Info, TrendingDown, TrendingUp, Target, Calendar, BarChart3 } from 'lucide-react'
 import { useMergeMode, useEffectiveTransactions, useEffectiveFilter } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { applyFilter, aggregateByCategory, formatCurrency } from '@/utils/dataAggregation'
-import { getCategoryColor, getEffectiveMonthlyBudget, getTotalMonthlyAdjustment, type TransactionTypeFilter } from '@/types'
+import { getCategoryColor, getEffectiveMonthlyBudget, getEffectiveYearlyBudget, getTotalMonthlyAdjustment, type TransactionTypeFilter } from '@/types'
+
+type BudgetViewMode = 'monthly' | 'yearly'
 
 function getProgressColor(ratio: number): string {
   if (ratio >= 1) return '#EF4444'
@@ -47,19 +49,31 @@ function getCurrentDayOfMonth(monthStr: string): number {
   return getDaysInMonth(monthStr)
 }
 
+function getCurrentMonthOfYear(yearStr: string): number {
+  const today = new Date()
+  const currentYear = today.getFullYear().toString()
+  if (yearStr === currentYear) {
+    return today.getMonth() + 1
+  }
+  return 12
+}
+
 export default function BudgetProgress() {
   const mergeMode = useMergeMode()
   const transactions = useEffectiveTransactions()
   const filter = useEffectiveFilter()
   const budgets = useBudgetStore((s) => s.budgets)
 
+  const [viewMode, setViewMode] = useState<BudgetViewMode>('monthly')
+
   const budgetCategories = useMemo(() => Object.keys(budgets), [budgets])
   const latestMonth = useMemo(() => getLatestMonth(transactions), [transactions])
 
   const effectiveMonth = filter.selectedMonth ?? latestMonth
+  const effectiveYear = effectiveMonth ? effectiveMonth.slice(0, 4) : null
   const effectiveType: TransactionTypeFilter = filter.selectedType ?? 'expense'
 
-  const filtered = useMemo(() => {
+  const monthlyFiltered = useMemo(() => {
     if (!effectiveMonth) return []
     return applyFilter(transactions, {
       selectedCategory: null,
@@ -73,20 +87,43 @@ export default function BudgetProgress() {
     })
   }, [transactions, effectiveMonth, effectiveType])
 
-  const categoryData = useMemo(() => aggregateByCategory(filtered, effectiveType), [filtered, effectiveType])
+  const yearlyFiltered = useMemo(() => {
+    if (!effectiveYear) return []
+    return applyFilter(transactions, {
+      selectedCategory: null,
+      selectedMonth: effectiveYear,
+      selectedDate: null,
+      selectedMerchant: null,
+      selectedType: effectiveType,
+      searchText: '',
+      amountMin: null,
+      amountMax: null,
+    })
+  }, [transactions, effectiveYear, effectiveType])
 
-  const categoryAmountMap = useMemo(() => {
+  const monthlyCategoryData = useMemo(() => aggregateByCategory(monthlyFiltered, effectiveType), [monthlyFiltered, effectiveType])
+  const yearlyCategoryData = useMemo(() => aggregateByCategory(yearlyFiltered, effectiveType), [yearlyFiltered, effectiveType])
+
+  const monthlyCategoryMap = useMemo(() => {
     const map = new Map<string, number>()
-    for (const d of categoryData) {
+    for (const d of monthlyCategoryData) {
       map.set(d.category, d.amount)
     }
     return map
-  }, [categoryData])
+  }, [monthlyCategoryData])
 
-  const items = useMemo(() => {
+  const yearlyCategoryMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const d of yearlyCategoryData) {
+      map.set(d.category, d.amount)
+    }
+    return map
+  }, [yearlyCategoryData])
+
+  const monthlyItems = useMemo(() => {
     return budgetCategories
       .map((category) => {
-        const spent = categoryAmountMap.get(category) ?? 0
+        const spent = monthlyCategoryMap.get(category) ?? 0
         const budget = getEffectiveMonthlyBudget(budgets[category], effectiveMonth ?? '')
         const adjustment = getTotalMonthlyAdjustment(budgets[category], effectiveMonth ?? '')
         const ratio = budget > 0 ? spent / budget : 0
@@ -115,18 +152,55 @@ export default function BudgetProgress() {
         }
       })
       .sort((a, b) => b.ratio - a.ratio)
-  }, [budgetCategories, categoryAmountMap, budgets, effectiveMonth])
+  }, [budgetCategories, monthlyCategoryMap, budgets, effectiveMonth])
 
-  const overspendItems = useMemo(() => items.filter((i) => i.ratio >= 1), [items])
-  const dangerItems = useMemo(() => items.filter((i) => i.ratio >= 0.9 && i.ratio < 1), [items])
-  const warningItems = useMemo(() => items.filter((i) => i.ratio >= 0.8 && i.ratio < 0.9), [items])
+  const yearlyItems = useMemo(() => {
+    return budgetCategories
+      .map((category) => {
+        const spent = yearlyCategoryMap.get(category) ?? 0
+        const budget = getEffectiveYearlyBudget(budgets[category], effectiveYear ?? '')
+        const ratio = budget > 0 ? spent / budget : 0
+        const remaining = budget > 0 ? budget - spent : 0
 
-  const totalBudget = useMemo(() => items.reduce((sum, i) => sum + i.budget, 0), [items])
-  const totalSpent = useMemo(() => items.reduce((sum, i) => sum + i.spent, 0), [items])
+        let monthlyRate = 0
+        let projectedSpend = 0
+        if (effectiveYear && budget > 0) {
+          const currentMonth = getCurrentMonthOfYear(effectiveYear)
+          monthlyRate = currentMonth > 0 ? spent / currentMonth : 0
+          projectedSpend = monthlyRate * 12
+        }
+
+        return {
+          category,
+          spent,
+          budget,
+          ratio,
+          remaining,
+          monthlyRate,
+          projectedSpend,
+        }
+      })
+      .sort((a, b) => b.ratio - a.ratio)
+  }, [budgetCategories, yearlyCategoryMap, budgets, effectiveYear])
+
+  const displayItems = viewMode === 'monthly' ? monthlyItems : yearlyItems
+  const hasAnyYearlyBudget = useMemo(() => {
+    return Object.values(budgets).some(
+      (c) => (c.defaultYearly !== undefined && c.defaultYearly > 0) || Object.keys(c.yearlyOverrides ?? {}).length > 0
+    )
+  }, [budgets])
+
+  const overspendItems = useMemo(() => displayItems.filter((i) => i.ratio >= 1), [displayItems])
+  const dangerItems = useMemo(() => displayItems.filter((i) => i.ratio >= 0.9 && i.ratio < 1), [displayItems])
+  const warningItems = useMemo(() => displayItems.filter((i) => i.ratio >= 0.8 && i.ratio < 0.9), [displayItems])
+
+  const totalBudget = useMemo(() => displayItems.reduce((sum, i) => sum + i.budget, 0), [displayItems])
+  const totalSpent = useMemo(() => displayItems.reduce((sum, i) => sum + i.spent, 0), [displayItems])
   const totalRemaining = useMemo(() => Math.max(0, totalBudget - totalSpent), [totalBudget, totalSpent])
   const totalRatio = useMemo(() => (totalBudget > 0 ? totalSpent / totalBudget : 0), [totalBudget, totalSpent])
 
-  const monthLabel = effectiveMonth ?? '暂无数据'
+  const periodLabel = viewMode === 'monthly' ? effectiveMonth : effectiveYear
+  const monthLabel = periodLabel ?? '暂无数据'
   const typeLabel = useMemo(() => {
     const labels: Record<TransactionTypeFilter, string> = {
       expense: '支出',
@@ -150,9 +224,9 @@ export default function BudgetProgress() {
             合并模式下，预算统计基于合并后的交易数据。如需调整预算，请先退出合并模式。
           </p>
         </div>
-        {items.length > 0 && (
+        {monthlyItems.length > 0 && (
           <div className="mt-4 flex flex-col gap-3">
-            {items.map((item) => {
+            {monthlyItems.map((item) => {
               const pct = Math.min(item.ratio * 100, 100)
               const barColor = getProgressColor(item.ratio)
 
@@ -196,7 +270,7 @@ export default function BudgetProgress() {
     )
   }
 
-  if (items.length === 0) return null
+  if (displayItems.length === 0) return null
 
   return (
     <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 backdrop-blur-sm">
@@ -207,7 +281,35 @@ export default function BudgetProgress() {
             {typeLabel}口径
           </span>
         </div>
-        <span className="text-[11px] text-slate-500">{monthLabel}</span>
+        <div className="flex items-center gap-2">
+          {hasAnyYearlyBudget && (
+            <div className="flex rounded-lg bg-slate-700/30 p-0.5">
+              <button
+                onClick={() => setViewMode('monthly')}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+                  viewMode === 'monthly'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Calendar className="h-3 w-3" />
+                月
+              </button>
+              <button
+                onClick={() => setViewMode('yearly')}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+                  viewMode === 'yearly'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <BarChart3 className="h-3 w-3" />
+                年
+              </button>
+            </div>
+          )}
+          <span className="text-[11px] text-slate-500">{monthLabel}</span>
+        </div>
       </div>
 
       {totalBudget > 0 && (
@@ -215,7 +317,7 @@ export default function BudgetProgress() {
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <Target className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-slate-500">总预算</span>
+              <span className="text-slate-500">总{viewMode === 'monthly' ? '月' : '年'}预算</span>
             </div>
             <span className="font-mono text-slate-300">¥{formatCurrency(totalBudget)}</span>
           </div>
@@ -276,7 +378,10 @@ export default function BudgetProgress() {
                   <span className="font-mono font-medium"> {Math.round(item.ratio * 100)}%</span>
                 </p>
                 <p className="text-[11px] text-orange-400/60">
-                  剩余 ¥{formatCurrency(item.remaining)}，按当前速度预计超支 ¥{formatCurrency(Math.max(0, item.projectedSpend - item.budget))}
+                  剩余 ¥{formatCurrency(item.remaining)}
+                  {'projectedSpend' in item && item.projectedSpend > item.budget && (
+                    <>，按当前速度预计超支 ¥{formatCurrency(Math.max(0, item.projectedSpend - item.budget))}</>
+                  )}
                 </p>
               </div>
             ))}
@@ -303,10 +408,11 @@ export default function BudgetProgress() {
       )}
 
       <div className="flex flex-col gap-3">
-        {items.map((item) => {
+        {displayItems.map((item) => {
           const pct = Math.min(item.ratio * 100, 100)
           const barColor = getProgressColor(item.ratio)
-          const willOverspend = item.budget > 0 && item.projectedSpend > item.budget && item.ratio < 1
+          const willOverspend = item.budget > 0 && item.ratio < 1 &&
+            'projectedSpend' in item && item.projectedSpend > item.budget
 
           return (
             <div key={item.category} className="flex flex-col gap-1.5">
@@ -317,7 +423,7 @@ export default function BudgetProgress() {
                     style={{ backgroundColor: getCategoryColor(item.category, 0) }}
                   />
                   <span className="text-xs text-slate-300">{item.category}</span>
-                  {item.hasAdjustment && (
+                  {'hasAdjustment' in item && item.hasAdjustment && (
                     <span className={`rounded px-1 py-0.5 text-[9px] ${item.adjustment > 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
                       {item.adjustment > 0 ? '+' : ''}{item.adjustment}
                     </span>
@@ -348,7 +454,7 @@ export default function BudgetProgress() {
                 <span className="text-slate-500">
                   剩余: <span className={item.remaining > 0 ? 'text-emerald-400' : 'text-red-400'}>¥{formatCurrency(item.remaining)}</span>
                 </span>
-                {willOverspend && (
+                {willOverspend && 'projectedSpend' in item && (
                   <span className="text-orange-400">
                     预计超支: ¥{formatCurrency(item.projectedSpend - item.budget)}
                   </span>

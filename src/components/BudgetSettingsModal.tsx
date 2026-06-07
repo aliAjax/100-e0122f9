@@ -3,7 +3,7 @@ import { X, Plus, Trash2, Calculator, Calendar, Settings, ChevronDown, ChevronUp
 import { useTransactions } from '@/store/useDashboardStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
-import { getCategoryColor, getEffectiveMonthlyBudget, type BudgetPeriodConfig } from '@/types'
+import { getCategoryColor, getEffectiveMonthlyBudget } from '@/types'
 
 interface Props {
   open: boolean
@@ -20,7 +20,6 @@ export default function BudgetSettingsModal({ open, onClose }: Props) {
   const setMonthlyOverride = useBudgetStore((s) => s.setMonthlyOverride)
   const setYearlyOverride = useBudgetStore((s) => s.setYearlyOverride)
   const setAdjustment = useBudgetStore((s) => s.setAdjustment)
-  const setCategoryBudget = useBudgetStore((s) => s.setCategoryBudget)
   const removeBudget = useBudgetStore((s) => s.removeBudget)
   const addCategoryToStore = useCategoryStore((s) => s.addCategory)
 

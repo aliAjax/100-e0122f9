@@ -112,6 +112,19 @@ export function getTotalMonthlyAdjustment(
   return config.adjustments?.[month] ?? 0
 }
 
+export function mergeBudgetConfigs(
+  target: BudgetPeriodConfig,
+  source: BudgetPeriodConfig
+): BudgetPeriodConfig {
+  return {
+    defaultMonthly: target.defaultMonthly ?? source.defaultMonthly,
+    defaultYearly: target.defaultYearly ?? source.defaultYearly,
+    monthlyOverrides: { ...source.monthlyOverrides, ...target.monthlyOverrides },
+    yearlyOverrides: { ...source.yearlyOverrides, ...target.yearlyOverrides },
+    adjustments: { ...source.adjustments, ...target.adjustments },
+  }
+}
+
 export interface DailyData {
   date: string
   amount: number

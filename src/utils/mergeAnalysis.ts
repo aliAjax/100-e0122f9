@@ -102,39 +102,23 @@ export function analyzeBudgetConflicts(
     }
   }
 
-  for (const category of Object.keys(globalBudget)) {
-    allCategories.add(category)
-  }
-
   const conflicts: BudgetConflict[] = []
   const unifiedBudget: BudgetMap = { ...globalBudget }
   const categoriesWithConflicts: string[] = []
 
   for (const category of allCategories) {
-    const billBudgets: Array<{ billId: string; billName: string; amount: number | null }> = []
-    const amounts = new Set<number | null>()
-
-    for (const bill of selectedBills) {
-      const amount = globalBudget[category] ?? null
-      billBudgets.push({ billId: bill.id, billName: bill.name, amount })
-      amounts.add(amount)
-    }
-
-    let conflictType: BudgetConflict['conflictType'] = 'consistent'
-
-    if (amounts.size === 1 && amounts.has(null)) {
-      conflictType = 'missing'
-    } else if (amounts.size > 1) {
-      conflictType = 'mismatch'
+    const amount = globalBudget[category] ?? null
+    if (amount === null) {
       categoriesWithConflicts.push(category)
-    }
-
-    if (conflictType !== 'consistent' || amounts.size > 1) {
       conflicts.push({
         category,
-        billBudgets,
-        unifiedAmount: globalBudget[category] ?? null,
-        conflictType,
+        billBudgets: selectedBills.map((bill) => ({
+          billId: bill.id,
+          billName: bill.name,
+          amount: null,
+        })),
+        unifiedAmount: null,
+        conflictType: 'missing',
       })
     }
   }
@@ -142,7 +126,7 @@ export function analyzeBudgetConflicts(
   return {
     conflicts,
     unifiedBudget,
-    hasConflicts: categoriesWithConflicts.length > 0,
+    hasConflicts: conflicts.length > 0,
     categoriesWithConflicts,
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Bookmark, Plus, Edit2, Trash2, Check, X, Info } from 'lucide-react'
-import { useDashboardStore, useFilter, useSavedViews, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
+import { useDashboardStore, useSavedViews, useMergeMode, useEffectiveFilter } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function SavedViews() {

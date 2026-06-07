@@ -32,8 +32,8 @@ export function MergeInfoPanel() {
   const duplicateCount = analysisResult?.duplicateCount ?? 0
   const totalCount = analysisResult?.totalCount ?? 0
 
-  const hasBudgetConflicts = budgetResult?.hasConflicts ?? false
-  const conflictCategories = budgetResult?.categoriesWithConflicts ?? []
+  const hasBudgetIssues = budgetResult?.hasConflicts ?? false
+  const missingBudgetCategories = budgetResult?.categoriesWithConflicts ?? []
 
   return (
     <div className="rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent p-4">
@@ -111,16 +111,16 @@ export function MergeInfoPanel() {
               <DollarSign className="h-4 w-4 text-purple-300" />
               <span className="text-xs text-purple-200">预算口径</span>
             </div>
-            {hasBudgetConflicts ? (
+            {hasBudgetIssues ? (
               <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-400" />
                   <span className="text-xs text-orange-200">
-                    检测到 {conflictCategories.length} 个分类存在预算口径差异
+                    {missingBudgetCategories.length} 个分类未设置全局预算
                   </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
-                  {conflictCategories.slice(0, 5).map((cat) => (
+                  {missingBudgetCategories.slice(0, 5).map((cat) => (
                     <span
                       key={cat}
                       className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] text-orange-200"
@@ -128,17 +128,22 @@ export function MergeInfoPanel() {
                       {cat}
                     </span>
                   ))}
-                  {conflictCategories.length > 5 && (
+                  {missingBudgetCategories.length > 5 && (
                     <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] text-orange-200">
-                      +{conflictCategories.length - 5}
+                      +{missingBudgetCategories.length - 5}
                     </span>
                   )}
                 </div>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-orange-200/70">
+                  当前预算为全局设置，合并分析不会判断账单级预算差异。
+                </p>
               </div>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span className="text-xs text-emerald-200">预算口径一致</span>
+                <span className="text-xs leading-relaxed text-emerald-200">
+                  使用全局预算口径统计合并交易
+                </span>
               </div>
             )}
           </div>

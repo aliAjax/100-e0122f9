@@ -666,7 +666,3 @@ export function useMergeAnalysisResult(): MergeAnalysisResult | null {
 export function useBudgetMergeResult(): BudgetMergeResult | null {
   return useDashboardStore((s) => s.budgetMergeResult)
 }
-
-export function useMergeValidation(): { valid: boolean; errors: string[] } {
-  return useDashboardStore((s) => validateMergeInputs(s.bills, s.selectedBillIdsForMerge))
-}

@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Plus, Edit2, Trash2, FileText, Check, X, Layers, CheckSquare, Square } from 'lucide-react'
-import { useDashboardStore, useCurrentBill, useMergeMode, useSelectedBillIdsForMerge, useMergeValidation } from '@/store/useDashboardStore'
+import { useDashboardStore, useCurrentBill, useMergeMode, useSelectedBillIdsForMerge } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
+import { validateMergeInputs } from '@/utils/mergeAnalysis'
 
 export default function BillSelector() {
   const bills = useDashboardStore((s) => s.bills)
@@ -9,7 +10,10 @@ export default function BillSelector() {
   const currentBill = useCurrentBill()
   const mergeMode = useMergeMode()
   const selectedBillIdsForMerge = useSelectedBillIdsForMerge()
-  const mergeValidation = useMergeValidation()
+  const mergeValidation = useMemo(
+    () => validateMergeInputs(bills, selectedBillIdsForMerge),
+    [bills, selectedBillIdsForMerge],
+  )
   const switchBill = useDashboardStore((s) => s.switchBill)
   const renameBill = useDashboardStore((s) => s.renameBill)
   const deleteBill = useDashboardStore((s) => s.deleteBill)

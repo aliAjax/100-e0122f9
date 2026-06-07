@@ -1,4 +1,5 @@
 import type { Transaction, CategoryRule, RulePreviewResult, TransactionPreview, CategoryChangePreview, BudgetImpactPreview, BudgetMap, MultiRuleMatch } from '@/types'
+import { getEffectiveMonthlyBudget } from '@/types'
 import { aggregateByCategory } from './dataAggregation'
 
 export function matchCategoryByMerchant(
@@ -159,6 +160,7 @@ export function previewRuleImpact(
   budgets: BudgetMap,
   scope: 'current' | 'all' = 'all',
   billCount?: number,
+  referenceMonth?: string,
 ): RulePreviewResult {
   const affectedTransactions: TransactionPreview[] = []
   const multiRuleMatchMap = new Map<string, MultiRuleMatch>()
@@ -253,9 +255,10 @@ export function previewRuleImpact(
   categoryChanges.sort((a, b) => Math.abs(b.changeAmount) - Math.abs(a.changeAmount))
 
   const budgetImpacts: BudgetImpactPreview[] = []
-  for (const [category, budget] of Object.entries(budgets)) {
+  for (const [category, budgetConfig] of Object.entries(budgets)) {
     const original = originalCategoryMap.get(category)?.amount ?? 0
     const newAmount = newCategoryMap.get(category)?.amount ?? 0
+    const budget = getEffectiveMonthlyBudget(budgetConfig, referenceMonth ?? '')
     const originalRatio = budget > 0 ? original / budget : 0
     const newRatio = budget > 0 ? newAmount / budget : 0
 

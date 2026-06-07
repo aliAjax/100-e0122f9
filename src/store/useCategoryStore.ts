@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { DEFAULT_COLORS } from '@/types'
+import { DEFAULT_COLORS, type BudgetMap, type BudgetPeriodConfig } from '@/types'
 import { useDashboardStore } from './useDashboardStore'
 import { useBudgetStore } from './useBudgetStore'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
@@ -39,7 +39,7 @@ function collectExistingCategoryNames(): Set<string> {
   try {
     const budgetsRaw = localStorage.getItem('spendlens_budgets')
     if (budgetsRaw) {
-      const budgets = JSON.parse(budgetsRaw) as Record<string, number>
+      const budgets = JSON.parse(budgetsRaw)
       for (const cat of Object.keys(budgets)) {
         names.add(cat)
       }
@@ -157,15 +157,16 @@ export const useCategoryStore = create<CategoryStore>((set, get) => ({
     localStorage.setItem('spendlens_bills', billsRaw)
 
     useBudgetStore.setState((state) => {
-      const nextBudgets: Record<string, number> = {}
-      for (const [cat, amount] of Object.entries(state.budgets)) {
+      const nextBudgets: BudgetMap = {}
+      for (const [cat, config] of Object.entries(state.budgets)) {
         if (cat === oldName) {
-          nextBudgets[trimmedNew] = amount
+          nextBudgets[trimmedNew] = config
         } else {
-          nextBudgets[cat] = amount
+          nextBudgets[cat] = config
         }
       }
       localStorage.setItem('spendlens_budgets', JSON.stringify(nextBudgets))
+      localStorage.setItem('spendlens_budgets_version', 'v2')
       return { budgets: nextBudgets }
     })
 
@@ -208,17 +209,16 @@ export const useCategoryStore = create<CategoryStore>((set, get) => ({
     localStorage.setItem('spendlens_bills', billsRaw)
 
     useBudgetStore.setState((state) => {
-      const nextBudgets: Record<string, number> = {}
-      for (const [cat, amount] of Object.entries(state.budgets)) {
+      const nextBudgets: BudgetMap = {}
+      for (const [cat, config] of Object.entries(state.budgets)) {
         if (cat === sourceName) {
-          nextBudgets[targetName] = (nextBudgets[targetName] ?? 0) + amount
-        } else if (cat === targetName) {
-          nextBudgets[targetName] = (nextBudgets[targetName] ?? 0) + amount
+          continue
         } else {
-          nextBudgets[cat] = amount
+          nextBudgets[cat] = config
         }
       }
       localStorage.setItem('spendlens_budgets', JSON.stringify(nextBudgets))
+      localStorage.setItem('spendlens_budgets_version', 'v2')
       return { budgets: nextBudgets }
     })
 
@@ -261,6 +261,7 @@ export const useCategoryStore = create<CategoryStore>((set, get) => ({
       const nextBudgets = { ...state.budgets }
       delete nextBudgets[name]
       localStorage.setItem('spendlens_budgets', JSON.stringify(nextBudgets))
+      localStorage.setItem('spendlens_budgets_version', 'v2')
       return { budgets: nextBudgets }
     })
 

@@ -74,7 +74,43 @@ export interface BudgetItem {
   amount: number
 }
 
-export type BudgetMap = Record<string, number>
+export type BudgetMapV1 = Record<string, number>
+
+export interface BudgetPeriodConfig {
+  defaultMonthly?: number
+  defaultYearly?: number
+  monthlyOverrides?: Record<string, number>
+  yearlyOverrides?: Record<string, number>
+  adjustments?: Record<string, number>
+}
+
+export type BudgetMap = Record<string, BudgetPeriodConfig>
+
+export function getEffectiveMonthlyBudget(
+  config: BudgetPeriodConfig | undefined,
+  month: string
+): number {
+  if (!config) return 0
+  const base = config.monthlyOverrides?.[month] ?? config.defaultMonthly ?? 0
+  const adjustment = config.adjustments?.[month] ?? 0
+  return Math.max(0, base + adjustment)
+}
+
+export function getEffectiveYearlyBudget(
+  config: BudgetPeriodConfig | undefined,
+  year: string
+): number {
+  if (!config) return 0
+  return config.yearlyOverrides?.[year] ?? config.defaultYearly ?? 0
+}
+
+export function getTotalMonthlyAdjustment(
+  config: BudgetPeriodConfig | undefined,
+  month: string
+): number {
+  if (!config) return 0
+  return config.adjustments?.[month] ?? 0
+}
 
 export interface DailyData {
   date: string

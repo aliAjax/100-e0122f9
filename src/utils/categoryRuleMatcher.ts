@@ -1,4 +1,4 @@
-import type { Transaction, CategoryRule, RulePreviewResult, TransactionPreview, CategoryChangePreview, BudgetImpactPreview, BudgetMap } from '@/types'
+import type { Transaction, CategoryRule, RulePreviewResult, TransactionPreview, CategoryChangePreview, BudgetImpactPreview, BudgetMap, MultiRuleMatch } from '@/types'
 import { aggregateByCategory } from './dataAggregation'
 
 export function matchCategoryByMerchant(
@@ -157,8 +157,11 @@ export function previewRuleImpact(
   transactions: Transaction[],
   rules: CategoryRule[],
   budgets: BudgetMap,
+  scope: 'current' | 'all' = 'all',
+  billCount?: number,
 ): RulePreviewResult {
   const affectedTransactions: TransactionPreview[] = []
+  const multiRuleMatchMap = new Map<string, MultiRuleMatch>()
   let totalAffected = 0
   let totalUnchanged = 0
   let totalManualSkipped = 0
@@ -179,9 +182,28 @@ export function previewRuleImpact(
       continue
     }
 
-    const matchResult = matchCategoryByMerchant(tx.merchant, rules)
+    const allMatches = matchAllRulesForMerchant(tx.merchant, rules)
+    const hasMultipleMatches = allMatches.length > 1
+    const matchResult = allMatches.length > 0 ? allMatches[0] : null
     const newCategory = matchResult ? matchResult.category : originalCategory
     const categoryChanged = newCategory !== originalCategory
+
+    if (hasMultipleMatches) {
+      const merchantKey = tx.merchant.trim().toLowerCase()
+      if (!multiRuleMatchMap.has(merchantKey)) {
+        multiRuleMatchMap.set(merchantKey, {
+          merchant: tx.merchant,
+          matches: allMatches.map((m) => ({
+            ruleId: m.ruleId,
+            keyword: m.keyword,
+            category: m.category,
+          })),
+          transactionCount: 0,
+        })
+      }
+      const existing = multiRuleMatchMap.get(merchantKey)!
+      existing.transactionCount += 1
+    }
 
     if (categoryChanged) {
       totalAffected++
@@ -190,8 +212,10 @@ export function previewRuleImpact(
         originalCategory,
         newCategory,
         matchedRuleKeyword: matchResult?.keyword,
+        matchedRuleKeywords: allMatches.map((m) => m.keyword),
         isManualCategory: isManual,
         categoryChanged: true,
+        hasMultipleMatches,
       })
     } else {
       totalUnchanged++
@@ -249,13 +273,20 @@ export function previewRuleImpact(
 
   budgetImpacts.sort((a, b) => Math.abs(b.newRatio - b.originalRatio) - Math.abs(a.newRatio - a.originalRatio))
 
+  const multiRuleMatches = Array.from(multiRuleMatchMap.values()).sort(
+    (a, b) => b.transactionCount - a.transactionCount,
+  )
+
   return {
     affectedTransactions,
     categoryChanges,
     budgetImpacts,
+    multiRuleMatches,
     totalAffected,
     totalUnchanged,
     totalManualSkipped,
+    scope,
+    billCount,
   }
 }
 

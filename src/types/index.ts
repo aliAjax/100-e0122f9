@@ -121,13 +121,21 @@ export interface CategoryRule {
 
 export const CATEGORY_LIST = ['餐饮', '交通', '购物', '娱乐', '居住', '医疗', '教育', '通讯', '其他']
 
+export interface MultiRuleMatch {
+  merchant: string
+  matches: Array<{ ruleId: string; keyword: string; category: string }>
+  transactionCount: number
+}
+
 export interface TransactionPreview {
   transaction: Transaction
   originalCategory: string
   newCategory: string
   matchedRuleKeyword?: string
+  matchedRuleKeywords?: string[]
   isManualCategory: boolean
   categoryChanged: boolean
+  hasMultipleMatches: boolean
 }
 
 export interface CategoryChangePreview {
@@ -152,7 +160,10 @@ export interface RulePreviewResult {
   affectedTransactions: TransactionPreview[]
   categoryChanges: CategoryChangePreview[]
   budgetImpacts: BudgetImpactPreview[]
+  multiRuleMatches: MultiRuleMatch[]
   totalAffected: number
   totalUnchanged: number
   totalManualSkipped: number
+  scope: 'current' | 'all'
+  billCount?: number
 }

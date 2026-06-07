@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { X, Plus, Trash2, Tag, RefreshCw, Check, AlertCircle, Eye, Pencil, Power } from 'lucide-react'
+import { X, Trash2, Tag, RefreshCw, Check, AlertCircle, Eye, Pencil } from 'lucide-react'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
 import { useDashboardStore, useTransactions } from '@/store/useDashboardStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import { useBudgetStore } from '@/store/useBudgetStore'
 import { getCategoryColor } from '@/types'
-import type { CategoryRule, RulePreviewResult } from '@/types'
+import type { CategoryRule, RulePreviewResult, Transaction } from '@/types'
 import { previewRuleImpact, applyCategoryRulesWithPreserve } from '@/utils/categoryRuleMatcher'
 import { cn } from '@/lib/utils'
 import RulePreviewModal from './RulePreviewModal'
@@ -95,28 +95,36 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
         return rules.map((r) =>
           r.id === action.id ? { ...r, ...action.updates } : r,
         )
-      case 'toggle': {
-        const targetRule = rules.find((r) => r.id === action.id)
+      case 'toggle':
         return rules.map((r) =>
           r.id === action.id ? { ...r, enabled: !r.enabled } : r,
         )
-      }
       default:
         return rules
     }
   }
 
-  const generatePreview = async (action: PendingAction) => {
+  const generatePreview = async (action: PendingAction, scope: 'current' | 'all' = 'all') => {
     if (allBills.length === 0) return
 
     setIsPreviewLoading(true)
     setPendingAction(action)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, 200))
       const previewRules = getRulesWithPendingAction(action)
-      const allTransactions = allBills.flatMap((b) => b.transactions)
-      const result = previewRuleImpact(allTransactions, previewRules, budgets)
+      let targetTransactions: Transaction[]
+      let billCount: number | undefined
+
+      if (scope === 'current') {
+        targetTransactions = transactions
+        billCount = 1
+      } else {
+        targetTransactions = allBills.flatMap((b) => b.transactions)
+        billCount = allBills.length
+      }
+
+      const result = previewRuleImpact(targetTransactions, previewRules, budgets, scope, billCount)
       setPreviewResult(result)
       setPreviewOpen(true)
     } finally {
@@ -141,6 +149,11 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
         toggleRule(pendingAction.id)
         break
     }
+  }
+
+  const handlePreviewScopeChange = async (scope: 'current' | 'all') => {
+    if (!pendingAction) return
+    await generatePreview(pendingAction, scope)
   }
 
   const handleApplyPreview = async (scope: 'current' | 'all') => {
@@ -519,6 +532,7 @@ export default function CategoryRuleModal({ open, onClose }: Props) {
         rules={getRulesWithPendingAction(pendingAction)}
         isLoading={isApplying}
         onApply={handleApplyPreview}
+        onScopeChange={handlePreviewScopeChange}
       />
     </>
   )

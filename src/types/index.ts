@@ -116,12 +116,36 @@ export function mergeBudgetConfigs(
   target: BudgetPeriodConfig,
   source: BudgetPeriodConfig
 ): BudgetPeriodConfig {
+  const mergedMonthlyOverrides: Record<string, number> = {}
+  const sourceMonthly = source.monthlyOverrides ?? {}
+  const targetMonthly = target.monthlyOverrides ?? {}
+  const allMonths = new Set([...Object.keys(sourceMonthly), ...Object.keys(targetMonthly)])
+  for (const month of allMonths) {
+    mergedMonthlyOverrides[month] = (sourceMonthly[month] ?? 0) + (targetMonthly[month] ?? 0)
+  }
+
+  const mergedYearlyOverrides: Record<string, number> = {}
+  const sourceYearly = source.yearlyOverrides ?? {}
+  const targetYearly = target.yearlyOverrides ?? {}
+  const allYears = new Set([...Object.keys(sourceYearly), ...Object.keys(targetYearly)])
+  for (const year of allYears) {
+    mergedYearlyOverrides[year] = (sourceYearly[year] ?? 0) + (targetYearly[year] ?? 0)
+  }
+
+  const mergedAdjustments: Record<string, number> = {}
+  const sourceAdjustments = source.adjustments ?? {}
+  const targetAdjustments = target.adjustments ?? {}
+  const allAdjustmentMonths = new Set([...Object.keys(sourceAdjustments), ...Object.keys(targetAdjustments)])
+  for (const month of allAdjustmentMonths) {
+    mergedAdjustments[month] = (sourceAdjustments[month] ?? 0) + (targetAdjustments[month] ?? 0)
+  }
+
   return {
     defaultMonthly: target.defaultMonthly ?? source.defaultMonthly,
     defaultYearly: target.defaultYearly ?? source.defaultYearly,
-    monthlyOverrides: { ...source.monthlyOverrides, ...target.monthlyOverrides },
-    yearlyOverrides: { ...source.yearlyOverrides, ...target.yearlyOverrides },
-    adjustments: { ...source.adjustments, ...target.adjustments },
+    monthlyOverrides: mergedMonthlyOverrides,
+    yearlyOverrides: mergedYearlyOverrides,
+    adjustments: mergedAdjustments,
   }
 }
 

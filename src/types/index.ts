@@ -116,6 +116,11 @@ export function mergeBudgetConfigs(
   target: BudgetPeriodConfig,
   source: BudgetPeriodConfig
 ): BudgetPeriodConfig {
+  const sumOptionalBudget = (targetAmount?: number, sourceAmount?: number) => {
+    if (targetAmount === undefined && sourceAmount === undefined) return undefined
+    return (targetAmount ?? 0) + (sourceAmount ?? 0)
+  }
+
   const mergedMonthlyOverrides: Record<string, number> = {}
   const sourceMonthly = source.monthlyOverrides ?? {}
   const targetMonthly = target.monthlyOverrides ?? {}
@@ -141,8 +146,8 @@ export function mergeBudgetConfigs(
   }
 
   return {
-    defaultMonthly: target.defaultMonthly ?? source.defaultMonthly,
-    defaultYearly: target.defaultYearly ?? source.defaultYearly,
+    defaultMonthly: sumOptionalBudget(target.defaultMonthly, source.defaultMonthly),
+    defaultYearly: sumOptionalBudget(target.defaultYearly, source.defaultYearly),
     monthlyOverrides: mergedMonthlyOverrides,
     yearlyOverrides: mergedYearlyOverrides,
     adjustments: mergedAdjustments,

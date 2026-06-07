@@ -3,7 +3,7 @@ import type { Transaction, FilterState, Bill, TransactionType, SavedView } from 
 import { CATEGORY_LIST } from '@/types'
 import type { CSVPreviewResult, MappedColumns } from '@/utils/csvParser'
 import { parseRows, detectDuplicates } from '@/utils/csvParser'
-import { applyCategoryRules } from '@/utils/categoryRuleMatcher'
+import { applyCategoryRules, applyCategoryRulesWithManualPreserve } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
 import { useCategoryStore } from './useCategoryStore'
 
@@ -112,6 +112,8 @@ interface DashboardStore {
   renameBill: (billId: string, name: string) => void
   deleteBill: (billId: string) => void
   setCurrentBillTransactions: (transactions: Transaction[]) => void
+  applyRulesToCurrentBill: () => { matchedCount: number; unchangedCount: number; manualSkippedCount: number }
+  applyRulesToAllBills: () => { totalMatched: number; totalUnchanged: number; totalManualSkipped: number; billsAffected: number }
   setFilter: (filter: Partial<FilterState>) => void
   clearFilter: () => void
   clearData: () => void
@@ -124,6 +126,7 @@ interface DashboardStore {
   switchView: (viewId: string) => void
   renameView: (viewId: string, name: string) => void
   deleteView: (viewId: string) => void
+  updateTransactionCategory: (transactionId: string, category: string, isManual?: boolean) => void
 }
 
 export const EMPTY_TRANSACTIONS: Transaction[] = []
@@ -224,6 +227,61 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const bills = state.bills.map((b) =>
         b.id === state.currentBillId ? { ...b, transactions } : b,
       )
+      saveBills(bills)
+      return { bills }
+    })
+  },
+
+  applyRulesToCurrentBill: () => {
+    const rules = useCategoryRuleStore.getState().rules
+    let result = { matchedCount: 0, unchangedCount: 0, manualSkippedCount: 0 }
+    set((state) => {
+      const currentBill = getCurrentBill(state)
+      if (!currentBill) return state
+      const applyResult = applyCategoryRulesWithManualPreserve(currentBill.transactions, rules)
+      result = applyResult
+      const bills = state.bills.map((b) =>
+        b.id === state.currentBillId ? { ...b, transactions: applyResult.transactions } : b,
+      )
+      saveBills(bills)
+      return { bills }
+    })
+    return result
+  },
+
+  applyRulesToAllBills: () => {
+    const rules = useCategoryRuleStore.getState().rules
+    let totalMatched = 0
+    let totalUnchanged = 0
+    let totalManualSkipped = 0
+    let billsAffected = 0
+    set((state) => {
+      const bills = state.bills.map((bill) => {
+        const applyResult = applyCategoryRulesWithManualPreserve(bill.transactions, rules)
+        if (applyResult.matchedCount > 0) {
+          billsAffected++
+        }
+        totalMatched += applyResult.matchedCount
+        totalUnchanged += applyResult.unchangedCount
+        totalManualSkipped += applyResult.manualSkippedCount
+        return { ...bill, transactions: applyResult.transactions }
+      })
+      saveBills(bills)
+      return { bills }
+    })
+    return { totalMatched, totalUnchanged, totalManualSkipped, billsAffected }
+  },
+
+  updateTransactionCategory: (transactionId, category, isManual = true) => {
+    set((state) => {
+      const bills = state.bills.map((bill) => ({
+        ...bill,
+        transactions: bill.transactions.map((tx) =>
+          tx.id === transactionId
+            ? { ...tx, category, isManualCategory: isManual }
+            : tx,
+        ),
+      }))
       saveBills(bills)
       return { bills }
     })

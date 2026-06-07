@@ -19,6 +19,7 @@ export interface Transaction {
   merchant: string
   amount: number
   type: TransactionType
+  isManualCategory?: boolean
 }
 
 export type TransactionTypeFilter = TransactionType | 'net'
@@ -119,3 +120,39 @@ export interface CategoryRule {
 }
 
 export const CATEGORY_LIST = ['餐饮', '交通', '购物', '娱乐', '居住', '医疗', '教育', '通讯', '其他']
+
+export interface TransactionPreview {
+  transaction: Transaction
+  originalCategory: string
+  newCategory: string
+  matchedRuleKeyword?: string
+  isManualCategory: boolean
+  categoryChanged: boolean
+}
+
+export interface CategoryChangePreview {
+  category: string
+  originalAmount: number
+  newAmount: number
+  changeAmount: number
+  originalCount: number
+  newCount: number
+}
+
+export interface BudgetImpactPreview {
+  category: string
+  originalSpent: number
+  newSpent: number
+  budget: number
+  originalRatio: number
+  newRatio: number
+}
+
+export interface RulePreviewResult {
+  affectedTransactions: TransactionPreview[]
+  categoryChanges: CategoryChangePreview[]
+  budgetImpacts: BudgetImpactPreview[]
+  totalAffected: number
+  totalUnchanged: number
+  totalManualSkipped: number
+}

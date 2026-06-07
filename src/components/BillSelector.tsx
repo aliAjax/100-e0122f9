@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Plus, Edit2, Trash2, FileText, Check, X, Layers, CheckSquare, Square } from 'lucide-react'
-import { useDashboardStore, useCurrentBill, useMergeMode, useSelectedBillIdsForMerge } from '@/store/useDashboardStore'
+import { useDashboardStore, useCurrentBill, useMergeMode, useSelectedBillIdsForMerge, useMergeValidation } from '@/store/useDashboardStore'
 import { cn } from '@/lib/utils'
 
 export default function BillSelector() {
@@ -9,6 +9,7 @@ export default function BillSelector() {
   const currentBill = useCurrentBill()
   const mergeMode = useMergeMode()
   const selectedBillIdsForMerge = useSelectedBillIdsForMerge()
+  const mergeValidation = useMergeValidation()
   const switchBill = useDashboardStore((s) => s.switchBill)
   const renameBill = useDashboardStore((s) => s.renameBill)
   const deleteBill = useDashboardStore((s) => s.deleteBill)
@@ -199,10 +200,10 @@ export default function BillSelector() {
                   </button>
                   <button
                     onClick={handleEnterMergeMode}
-                    disabled={selectedBillIdsForMerge.length < 2}
+                    disabled={selectedBillIdsForMerge.length < 2 || !mergeValidation.valid}
                     className={cn(
                       'rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
-                      selectedBillIdsForMerge.length >= 2
+                      selectedBillIdsForMerge.length >= 2 && mergeValidation.valid
                         ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
                         : 'bg-slate-700/20 text-slate-600 cursor-not-allowed',
                     )}
@@ -211,6 +212,11 @@ export default function BillSelector() {
                   </button>
                 </div>
               </div>
+              {!mergeValidation.valid && mergeValidation.errors.length > 0 && (
+                <div className="mt-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-2 py-1.5">
+                  <p className="text-[10px] text-orange-300">{mergeValidation.errors[0]}</p>
+                </div>
+              )}
             </div>
           )}
 

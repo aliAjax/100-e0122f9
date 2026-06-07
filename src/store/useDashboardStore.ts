@@ -6,6 +6,9 @@ import { parseRows, detectDuplicates } from '@/utils/csvParser'
 import { applyCategoryRules, applyCategoryRulesWithManualPreserve } from '@/utils/categoryRuleMatcher'
 import { useCategoryRuleStore } from './useCategoryRuleStore'
 import { useCategoryStore } from './useCategoryStore'
+import type { MergeAnalysisResult, BudgetMergeResult } from '@/utils/mergeAnalysis'
+import { analyzeMergeDuplicates, analyzeBudgetConflicts, validateMergeInputs } from '@/utils/mergeAnalysis'
+import { useBudgetStore } from './useBudgetStore'
 
 const STORAGE_KEY_BILLS = 'spendlens_bills'
 const STORAGE_KEY_CURRENT = 'spendlens_current_bill'
@@ -109,6 +112,9 @@ interface DashboardStore {
   mergeMode: boolean
   selectedBillIdsForMerge: string[]
   mergeFilter: FilterState
+  mergeDedupeEnabled: boolean
+  mergeAnalysisResult: MergeAnalysisResult | null
+  budgetMergeResult: BudgetMergeResult | null
   createBill: (name: string, transactions: Transaction[]) => void
   mergeToCurrentBill: (transactions: Transaction[]) => void
   switchBill: (billId: string) => void
@@ -135,6 +141,8 @@ interface DashboardStore {
   exitMergeMode: () => void
   setMergeFilter: (filter: Partial<FilterState>) => void
   clearMergeFilter: () => void
+  setMergeDedupeEnabled: (enabled: boolean) => void
+  refreshMergeAnalysis: () => void
 }
 
 export const EMPTY_TRANSACTIONS: Transaction[] = []
@@ -165,6 +173,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   mergeMode: false,
   selectedBillIdsForMerge: [],
   mergeFilter: createEmptyFilter(),
+  mergeDedupeEnabled: true,
+  mergeAnalysisResult: null,
+  budgetMergeResult: null,
 
   createBill: (name, transactions) => {
     const newBill: Bill = {
@@ -509,12 +520,49 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   enterMergeMode: () => {
     set((state) => {
       if (state.selectedBillIdsForMerge.length < 2) return state
-      return { mergeMode: true }
+      const validation = validateMergeInputs(state.bills, state.selectedBillIdsForMerge)
+      if (!validation.valid) return state
+      const analysisResult = analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
+      const budget = useBudgetStore.getState().budgets
+      const budgetResult = analyzeBudgetConflicts(state.bills, state.selectedBillIdsForMerge, budget)
+      return {
+        mergeMode: true,
+        mergeAnalysisResult: analysisResult,
+        budgetMergeResult: budgetResult,
+      }
     })
   },
 
   exitMergeMode: () => {
-    set({ mergeMode: false })
+    set({
+      mergeMode: false,
+      mergeAnalysisResult: null,
+      budgetMergeResult: null,
+    })
+  },
+
+  setMergeDedupeEnabled: (enabled) =>
+    set((state) => {
+      const analysisResult = state.mergeMode
+        ? analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
+        : null
+      return {
+        mergeDedupeEnabled: enabled,
+        mergeAnalysisResult: analysisResult,
+      }
+    }),
+
+  refreshMergeAnalysis: () => {
+    set((state) => {
+      if (!state.mergeMode) return state
+      const analysisResult = analyzeMergeDuplicates(state.bills, state.selectedBillIdsForMerge)
+      const budget = useBudgetStore.getState().budgets
+      const budgetResult = analyzeBudgetConflicts(state.bills, state.selectedBillIdsForMerge, budget)
+      return {
+        mergeAnalysisResult: analysisResult,
+        budgetMergeResult: budgetResult,
+      }
+    })
   },
 
   setMergeFilter: (partial) =>
@@ -552,6 +600,9 @@ export function useSavedViews(): SavedView[] {
 function getMergedTransactions(state: DashboardStore): Transaction[] {
   if (!state.mergeMode) return EMPTY_TRANSACTIONS
   const selectedBills = state.bills.filter((b) => state.selectedBillIdsForMerge.includes(b.id))
+  if (state.mergeDedupeEnabled && state.mergeAnalysisResult) {
+    return state.mergeAnalysisResult.uniqueTransactions as Transaction[]
+  }
   return selectedBills.flatMap((b) => b.transactions)
 }
 
@@ -602,4 +653,20 @@ export function useEffectiveDataLoaded(): boolean {
     if (s.mergeMode) return getMergeDataLoaded(s)
     return getDataLoaded(s)
   })
+}
+
+export function useMergeDedupeEnabled(): boolean {
+  return useDashboardStore((s) => s.mergeDedupeEnabled)
+}
+
+export function useMergeAnalysisResult(): MergeAnalysisResult | null {
+  return useDashboardStore((s) => s.mergeAnalysisResult)
+}
+
+export function useBudgetMergeResult(): BudgetMergeResult | null {
+  return useDashboardStore((s) => s.budgetMergeResult)
+}
+
+export function useMergeValidation(): { valid: boolean; errors: string[] } {
+  return useDashboardStore((s) => validateMergeInputs(s.bills, s.selectedBillIdsForMerge))
 }

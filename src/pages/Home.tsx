@@ -22,6 +22,7 @@ import AnnualSummary from '@/components/AnnualSummary'
 import FilterBar from '@/components/FilterBar'
 import SavedViews from '@/components/SavedViews'
 import TransactionTypeToggle from '@/components/TransactionTypeToggle'
+import { MergeInfoPanel } from '@/components/MergeInfoPanel'
 
 export default function Home() {
   const dataLoaded = useDataLoaded()
@@ -173,6 +174,7 @@ export default function Home() {
               <TransactionTypeToggle />
             </div>
             <FilterBar />
+            <MergeInfoPanel />
             <StatsCards />
             <AnnualSummary />
             <div className="grid grid-cols-5 gap-6">

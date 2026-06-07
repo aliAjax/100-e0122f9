@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   CheckCircle,
   XCircle,
@@ -16,7 +16,6 @@ import {
   Layers,
   AlertCircle,
   Edit3,
-  Trash2,
 } from 'lucide-react'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { useCategoryRuleStore } from '@/store/useCategoryRuleStore'
@@ -51,14 +50,11 @@ export default function CSVPreviewModal() {
   const pendingBillName = useDashboardStore((s) => s.pendingBillName)
   const setPreviewResult = useDashboardStore((s) => s.setPreviewResult)
   const setPendingBillName = useDashboardStore((s) => s.setPendingBillName)
-  const confirmPreview = useDashboardStore((s) => s.confirmPreview)
-  const confirmPreviewMerge = useDashboardStore((s) => s.confirmPreviewMerge)
   const confirmReconciliation = useDashboardStore((s) => s.confirmReconciliation)
   const bills = useDashboardStore((s) => s.bills)
   const currentBillId = useDashboardStore((s) => s.currentBillId)
   const categoryRules = useCategoryRuleStore((s) => s.rules)
   const categoryStoreCategories = useCategoryStore((s) => s.categories)
-  const addCategory = useCategoryStore((s) => s.addCategory)
 
   const [importMode, setImportMode] = useState<ImportMode>('create')
   const [billName, setBillName] = useState(pendingBillName || `账单 ${bills.length + 1}`)
@@ -150,7 +146,7 @@ export default function CSVPreviewModal() {
       return
     }
 
-    const { transactions: categorizedTxs, matchedCount, newCategories } = applyCategoryRulesWithDetails(
+    const { transactions: categorizedTxs } = applyCategoryRulesWithDetails(
       parsedResult.allTransactions,
       categoryRules,
       existingCategories,
@@ -254,15 +250,15 @@ export default function CSVPreviewModal() {
     }))
   }
 
-  const handleItemAction = useCallback((itemId: string, action: 'keep' | 'skip') => {
+  const handleItemAction = (itemId: string, action: 'keep' | 'skip') => {
     setReconciliationItems((prev) =>
       prev.map((item) =>
         item.transaction.id === itemId ? { ...item, action } : item
       )
     )
-  }, [])
+  }
 
-  const handleItemCategoryChange = useCallback((itemId: string, newCategory: string) => {
+  const handleItemCategoryChange = (itemId: string, newCategory: string) => {
     setReconciliationItems((prev) =>
       prev.map((item) => {
         if (item.transaction.id === itemId) {
@@ -277,7 +273,7 @@ export default function CSVPreviewModal() {
       })
     )
     setEditingItemId(null)
-  }, [existingCategories])
+  }
 
   const handleBulkAction = (status: ImportReconciliationItem['status'], action: 'keep' | 'skip') => {
     setReconciliationItems((prev) =>
